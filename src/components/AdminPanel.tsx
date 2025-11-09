@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useKZStore } from '../hooks/useKZStore';
 import { useAuth } from '../hooks/useAuth';
@@ -12,6 +12,8 @@ import { FlashSaleManager } from './admin/FlashSaleManager';
 import { ReviewManagement } from './admin/ReviewManagement';
 import AdminTicketsPanel from './admin/AdminTicketsPanel';
 import PriceAlertsPanel from './admin/PriceAlertsPanel';
+import { PreSaleManager } from './admin/PreSaleManager';
+import { AnalyticsDashboard } from './admin/AnalyticsDashboard';
 import { Product } from '../App';
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -39,7 +41,7 @@ type AdminPanelProps = {
   onBack: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts';
+type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics';
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -315,6 +317,28 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
               <Bell className="inline-block mr-2 size-4" />
               Alertas
             </button>
+            <button
+              onClick={() => setActiveTab('pre-sales')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'pre-sales'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Clock className="inline-block mr-2 size-4" />
+              Pré-Vendas
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'analytics'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="inline-block mr-2 size-4" />
+              Analytics
+            </button>
           </div>
         </div>
       </div>
@@ -517,6 +541,14 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
           <h2 className="text-2xl font-bold mb-6">Gestão de Alertas de Preço</h2>
           <PriceAlertsPanel />
         </div>
+      )}
+
+      {activeTab === 'pre-sales' && (
+        <PreSaleManager />
+      )}
+
+      {activeTab === 'analytics' && (
+        <AnalyticsDashboard />
       )}
 
       {/* Product Form Modal */}

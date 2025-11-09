@@ -1,11 +1,11 @@
-import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle, Bell } from 'lucide-react';
+import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle, Bell, RefreshCw, Share2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { AuthModal } from './AuthModal';
 import { useAuth } from '../hooks/useAuth';
 import { LanguageSelector } from './LanguageSelector';
 
-type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts';
+type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts' | 'affiliate' | 'trade-in';
 
 type HeaderProps = {
   cartCount: number;
@@ -150,6 +150,26 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                     >
                       <Bell className="size-4" />
                       <span>Meus Alertas</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('trade-in');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <RefreshCw className="size-4" />
+                      <span>Trade-In</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('affiliate');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Share2 className="size-4" />
+                      <span>Afiliados</span>
                     </button>
                     <div className="h-px bg-gray-200 my-1" />
                     <button
