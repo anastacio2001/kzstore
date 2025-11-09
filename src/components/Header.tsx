@@ -1,11 +1,11 @@
-import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle, Bell } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { AuthModal } from './AuthModal';
 import { useAuth } from '../hooks/useAuth';
 import { LanguageSelector } from './LanguageSelector';
 
-type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets';
+type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts';
 
 type HeaderProps = {
   cartCount: number;
@@ -140,6 +140,16 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                     >
                       <MessageCircle className="size-4" />
                       <span>Meus Tickets</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('my-price-alerts');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Bell className="size-4" />
+                      <span>Meus Alertas</span>
                     </button>
                     <div className="h-px bg-gray-200 my-1" />
                     <button

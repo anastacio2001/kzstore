@@ -1,6 +1,7 @@
-import { Heart, ShoppingCart, Trash2, ArrowLeft, Package } from 'lucide-react';
+import { Heart, ShoppingCart, Trash2, ArrowLeft, Package, Bell } from 'lucide-react';
 import { Button } from './ui/button';
 import { Product } from '../App';
+import { PriceAlertButton } from './PriceAlertButton';
 
 type WishlistPageProps = {
   wishlist: Product[];
@@ -158,6 +159,15 @@ export function WishlistPage({
                       <ShoppingCart className="size-5" />
                     </button>
                   )}
+                </div>
+
+                {/* Price Alert Button */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <PriceAlertButton 
+                    productId={product.id}
+                    productName={product.nome}
+                    currentPrice={product.preco_aoa}
+                  />
                 </div>
               </div>
             </div>

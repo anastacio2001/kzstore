@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell } from 'lucide-react';
 import { Button } from './ui/button';
 import { useKZStore } from '../hooks/useKZStore';
 import { useAuth } from '../hooks/useAuth';
@@ -11,6 +11,7 @@ import { TeamManager } from './admin/TeamManager';
 import { FlashSaleManager } from './admin/FlashSaleManager';
 import { ReviewManagement } from './admin/ReviewManagement';
 import AdminTicketsPanel from './admin/AdminTicketsPanel';
+import PriceAlertsPanel from './admin/PriceAlertsPanel';
 import { Product } from '../App';
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -38,7 +39,7 @@ type AdminPanelProps = {
   onBack: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews';
+type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts';
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -303,6 +304,17 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
               <MessageCircle className="inline-block mr-2 size-4" />
               Tickets
             </button>
+            <button
+              onClick={() => setActiveTab('price-alerts')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'price-alerts'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Bell className="inline-block mr-2 size-4" />
+              Alertas
+            </button>
           </div>
         </div>
       </div>
@@ -498,6 +510,13 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
 
       {activeTab === 'tickets' && (
         <AdminTicketsPanel />
+      )}
+
+      {activeTab === 'price-alerts' && (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Gestão de Alertas de Preço</h2>
+          <PriceAlertsPanel />
+        </div>
       )}
 
       {/* Product Form Modal */}
