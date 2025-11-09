@@ -1,0 +1,45 @@
+# robots.txt for KZSTORE
+# https://www.kzstore.ao/robots.txt
+
+User-agent: *
+Allow: /
+Allow: /produtos
+Allow: /sobre
+Allow: /contato
+Allow: /faq
+Allow: /privacidade
+Allow: /termos
+
+# Disallow admin and private areas
+Disallow: /admin
+Disallow: /login
+Disallow: /checkout
+
+# Crawl delay
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://www.kzstore.ao/sitemap.xml
+
+# Common bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Block bad bots
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /

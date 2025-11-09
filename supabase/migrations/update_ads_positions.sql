@@ -1,0 +1,3 @@
+-- Atualizar constraint de posições da tabela ads para incluir todas as posições necessárias
+ALTER TABLE public.ads DROP CONSTRAINT IF EXISTS ads_position_check;
+ALTER TABLE public.ads ADD CONSTRAINT ads_position_check CHECK (position IN ('home-hero', 'home-sidebar', 'products-top', 'products-sidebar', 'cart-sidebar', 'home-hero-banner', 'home-middle-banner', 'category-top', 'product-sidebar', 'checkout-banner', 'footer-banner'));
