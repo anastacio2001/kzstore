@@ -30,6 +30,9 @@ import { MyTicketsPage } from './components/MyTicketsPage';
 import MyPriceAlertsPage from './components/MyPriceAlertsPage';
 import { AffiliateDashboard } from './components/AffiliateDashboard';
 import { TradeInForm } from './components/TradeInForm';
+import TradeInCredits from './components/TradeInCredits';
+import QuoteRequestForm from './components/QuoteRequestForm';
+import BusinessRegistration from './components/BusinessRegistration';
 import { SEO, seoConfigs } from './components/SEO';
 import { Analytics } from './components/Analytics';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -63,7 +66,7 @@ export type CartItem = {
   quantity: number;
 };
 
-type Page = 'home' | 'products' | 'product-detail' | 'cart' | 'checkout' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'login' | 'forgot-password' | 'reset-password' | 'privacy' | 'terms' | 'return' | 'cookie' | 'not-found' | 'promocoes' | 'blog' | 'carreiras' | 'devolucao' | 'garantia' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts' | 'affiliate' | 'trade-in';
+type Page = 'home' | 'products' | 'product-detail' | 'cart' | 'checkout' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'login' | 'forgot-password' | 'reset-password' | 'privacy' | 'terms' | 'return' | 'cookie' | 'not-found' | 'promocoes' | 'blog' | 'carreiras' | 'devolucao' | 'garantia' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts' | 'affiliate' | 'trade-in' | 'trade-in-credits' | 'quote-request' | 'b2b-register';
 
 type ToastMessage = {
   id: number;
@@ -497,6 +500,12 @@ export default function App() {
           {currentPage === 'affiliate' && <AffiliateDashboard />}
 
           {currentPage === 'trade-in' && <TradeInForm />}
+
+          {currentPage === 'trade-in-credits' && <TradeInCredits />}
+
+          {currentPage === 'quote-request' && <QuoteRequestForm />}
+
+          {currentPage === 'b2b-register' && <BusinessRegistration />}
         </main>
 
         {/* Footer - Hide on admin and login pages */}

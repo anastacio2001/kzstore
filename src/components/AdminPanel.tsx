@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3 } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3, DollarSign } from 'lucide-react';
 import { Button } from './ui/button';
 import { useKZStore } from '../hooks/useKZStore';
 import { useAuth } from '../hooks/useAuth';
@@ -14,6 +14,10 @@ import AdminTicketsPanel from './admin/AdminTicketsPanel';
 import PriceAlertsPanel from './admin/PriceAlertsPanel';
 import { PreSaleManager } from './admin/PreSaleManager';
 import { AnalyticsDashboard } from './admin/AnalyticsDashboard';
+import TradeInEvaluator from './admin/TradeInEvaluator';
+import AffiliateManager from './admin/AffiliateManager';
+import QuoteBuilder from './admin/QuoteBuilder';
+import EmailCampaignBuilder from './admin/EmailCampaignBuilder';
 import { Product } from '../App';
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -41,7 +45,7 @@ type AdminPanelProps = {
   onBack: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics';
+type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics' | 'trade-ins' | 'affiliates' | 'quotes' | 'email-campaigns';
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -329,6 +333,50 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
               Pré-Vendas
             </button>
             <button
+              onClick={() => setActiveTab('trade-ins')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'trade-ins'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <RefreshCw className="inline-block mr-2 size-4" />
+              Trade-Ins
+            </button>
+            <button
+              onClick={() => setActiveTab('affiliates')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'affiliates'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Share2 className="inline-block mr-2 size-4" />
+              Afiliados
+            </button>
+            <button
+              onClick={() => setActiveTab('quotes')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'quotes'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FileText className="inline-block mr-2 size-4" />
+              Orçamentos
+            </button>
+            <button
+              onClick={() => setActiveTab('email-campaigns')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'email-campaigns'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Mail className="inline-block mr-2 size-4" />
+              Email Marketing
+            </button>
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'analytics'
@@ -545,6 +593,22 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
 
       {activeTab === 'pre-sales' && (
         <PreSaleManager />
+      )}
+
+      {activeTab === 'trade-ins' && (
+        <TradeInEvaluator />
+      )}
+
+      {activeTab === 'affiliates' && (
+        <AffiliateManager />
+      )}
+
+      {activeTab === 'quotes' && (
+        <QuoteBuilder />
+      )}
+
+      {activeTab === 'email-campaigns' && (
+        <EmailCampaignBuilder />
       )}
 
       {activeTab === 'analytics' && (

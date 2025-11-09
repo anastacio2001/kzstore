@@ -1,11 +1,11 @@
-import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle, Bell, RefreshCw, Share2 } from 'lucide-react';
+import { ShoppingCart, Package, Menu, X, Search, User, Phone, Heart, ChevronDown, ShoppingBag, Settings, LogOut, MessageCircle, Bell, RefreshCw, Share2, DollarSign, FileText, Building } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { AuthModal } from './AuthModal';
 import { useAuth } from '../hooks/useAuth';
 import { LanguageSelector } from './LanguageSelector';
 
-type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts' | 'affiliate' | 'trade-in';
+type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'my-tickets' | 'my-price-alerts' | 'affiliate' | 'trade-in' | 'trade-in-credits' | 'quote-request' | 'b2b-register';
 
 type HeaderProps = {
   cartCount: number;
@@ -163,6 +163,16 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                     </button>
                     <button
                       onClick={() => {
+                        onNavigate('trade-in-credits');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <DollarSign className="size-4" />
+                      <span>Meus Créditos</span>
+                    </button>
+                    <button
+                      onClick={() => {
                         onNavigate('affiliate');
                         setUserMenuOpen(false);
                       }}
@@ -170,6 +180,26 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                     >
                       <Share2 className="size-4" />
                       <span>Afiliados</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('quote-request');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <FileText className="size-4" />
+                      <span>Solicitar Orçamento</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('b2b-register');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Building className="size-4" />
+                      <span>Cadastro B2B</span>
                     </button>
                     <div className="h-px bg-gray-200 my-1" />
                     <button
