@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Bell, Mail, TrendingDown, Search } from 'lucide-react';
 import { supabase } from '../../utils/supabase/client';
+import { useKZStore } from '../../hooks/useKZStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -10,17 +11,19 @@ import { toast } from 'sonner';
 interface PriceAlert {
   id: string;
   user_email: string;
-  product_id: number;
+  product_id: string;
   target_price: number;
   created_at: string;
   product?: {
+    id: string;
     nome: string;
-    preco: number;
-    imagem: string;
+    preco_aoa: number;
+    imagem_url: string;
   };
 }
 
 export default function PriceAlertsPanel() {
+  const { products, fetchProducts } = useKZStore();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,8 +34,17 @@ export default function PriceAlertsPanel() {
   });
 
   useEffect(() => {
-    loadAlerts();
+    // Carregar produtos se não estiverem carregados
+    if (products.length === 0) {
+      fetchProducts();
+    }
   }, []);
+
+  useEffect(() => {
+    if (products.length > 0) {
+      loadAlerts();
+    }
+  }, [products]);
 
   const loadAlerts = async () => {
     try {
@@ -46,30 +58,25 @@ export default function PriceAlertsPanel() {
 
       if (alertsError) throw alertsError;
 
-      // Buscar informações dos produtos
+      console.log('📋 Alertas do Supabase:', alertsData);
+      console.log('🛍️ Produtos do store:', products);
+
+      // Combinar alertas com produtos do store
       if (alertsData && alertsData.length > 0) {
-        const productIds = [...new Set(alertsData.map(a => a.product_id))];
-        const { data: productsData, error: productsError } = await supabase
-          .from('produtos')
-          .select('id, nome, preco, imagem')
-          .in('id', productIds);
-
-        if (productsError) throw productsError;
-
-        // Combinar alertas com produtos
         const alertsWithProducts = alertsData.map(alert => ({
           ...alert,
-          product: productsData?.find(p => p.id === alert.product_id)
+          product: products.find(p => p.id === alert.product_id)
         }));
 
+        console.log('✅ Alertas combinados:', alertsWithProducts);
         setAlerts(alertsWithProducts);
 
         // Calcular estatísticas
         const active = alertsWithProducts.filter(a => 
-          a.product && a.product.preco > a.target_price
+          a.product && a.product.preco_aoa > a.target_price
         ).length;
         const triggered = alertsWithProducts.filter(a => 
-          a.product && a.product.preco <= a.target_price
+          a.product && a.product.preco_aoa <= a.target_price
         ).length;
 
         setStats({
@@ -197,9 +204,9 @@ export default function PriceAlertsPanel() {
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   {/* Imagem do Produto */}
-                  {alert.product?.imagem && (
+                  {alert.product?.imagem_url && (
                     <img
-                      src={alert.product.imagem}
+                      src={alert.product.imagem_url}
                       alt={alert.product.nome}
                       className="w-20 h-20 object-cover rounded-lg"
                     />
@@ -228,7 +235,7 @@ export default function PriceAlertsPanel() {
                             <div className="text-right">
                               <p className="text-xs text-gray-500">Preço Atual</p>
                               <p className="text-lg font-bold">
-                                {alert.product.preco.toLocaleString('pt-AO')} Kz
+                                {alert.product.preco_aoa.toLocaleString('pt-AO')} Kz
                               </p>
                             </div>
                             <div className="text-right">
@@ -237,14 +244,14 @@ export default function PriceAlertsPanel() {
                                 {alert.target_price.toLocaleString('pt-AO')} Kz
                               </p>
                             </div>
-                            {alert.product.preco <= alert.target_price ? (
+                            {alert.product.preco_aoa <= alert.target_price ? (
                               <Badge className="bg-green-500">
                                 <Bell className="h-3 w-3 mr-1" />
                                 Preço Atingido!
                               </Badge>
                             ) : (
                               <Badge variant="secondary">
-                                Aguardando (-{((1 - alert.target_price / alert.product.preco) * 100).toFixed(0)}%)
+                                Aguardando (-{((1 - alert.target_price / alert.product.preco_aoa) * 100).toFixed(0)}%)
                               </Badge>
                             )}
                           </>

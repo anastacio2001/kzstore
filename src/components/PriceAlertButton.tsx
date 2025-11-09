@@ -3,16 +3,14 @@ import { Bell, BellOff, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { supabase } from '../utils/supabase/client';
+import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
 
 type PriceAlert = {
   id: string;
   user_email: string;
-  product_id: string;
-  product_name: string;
-  current_price: number;
+  product_id: number;
   target_price: number;
-  is_active: boolean;
   created_at: string;
 };
 
@@ -20,17 +18,14 @@ type PriceAlertButtonProps = {
   productId: string;
   productName: string;
   currentPrice: number;
-  userEmail?: string;
-  accessToken?: string;
 };
 
 export function PriceAlertButton({ 
   productId, 
   productName, 
-  currentPrice, 
-  userEmail, 
-  accessToken 
+  currentPrice
 }: PriceAlertButtonProps) {
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [targetPrice, setTargetPrice] = useState('');
   const [hasAlert, setHasAlert] = useState(false);
@@ -38,27 +33,29 @@ export function PriceAlertButton({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (userEmail) {
+    if (user?.email) {
       checkExistingAlert();
     }
-  }, [userEmail, productId]);
+  }, [user?.email, productId]);
 
   const checkExistingAlert = async () => {
-    if (!userEmail) return;
+    if (!user?.email) return;
 
     try {
       const { data, error } = await supabase
         .from('price_alerts')
         .select('*')
-        .eq('user_email', userEmail)
+        .eq('user_email', user.email)
         .eq('product_id', productId)
-        .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         setHasAlert(true);
         setAlertId(data.id);
         setTargetPrice(data.target_price.toString());
+      } else {
+        setHasAlert(false);
+        setAlertId(null);
       }
     } catch (error) {
       console.error('Error checking alerts:', error);
@@ -66,18 +63,29 @@ export function PriceAlertButton({
   };
 
   const handleCreateAlert = async () => {
-    if (!userEmail) {
+    console.log('🔔 handleCreateAlert chamado');
+    console.log('User:', user);
+    console.log('User email:', user?.email);
+    console.log('Product ID (original):', productId, 'tipo:', typeof productId);
+    
+    if (!user?.email) {
+      console.log('❌ Sem email do usuário');
       toast.error('Faça login para criar alertas de preço');
       return;
     }
 
     const price = parseFloat(targetPrice);
+    console.log('💰 Preço digitado:', targetPrice, 'Parseado:', price);
+    console.log('💰 Preço atual:', currentPrice);
+    
     if (!price || price <= 0) {
+      console.log('❌ Preço inválido');
       toast.error('Digite um preço válido');
       return;
     }
 
     if (price >= currentPrice) {
+      console.log('❌ Preço alvo maior ou igual ao atual');
       toast.error('O preço alvo deve ser menor que o preço atual');
       return;
     }
@@ -85,34 +93,36 @@ export function PriceAlertButton({
     try {
       setLoading(true);
       
+      const alertData = {
+        user_email: user.email,
+        product_id: productId, // Manter como string (UUID)
+        target_price: price
+      };
+      
+      console.log('📤 Enviando dados:', alertData);
+      
       const { data, error } = await supabase
         .from('price_alerts')
-        .insert([
-          {
-            user_email: userEmail,
-            product_id: productId,
-            product_name: productName,
-            current_price: currentPrice,
-            target_price: price,
-            is_active: true
-          }
-        ])
+        .insert([alertData])
         .select()
         .single();
 
+      console.log('📥 Resposta do Supabase:', { data, error });
+
       if (error) {
-        console.error('Error creating alert:', error);
-        toast.error('Erro ao criar alerta');
+        console.error('❌ Erro ao criar alerta:', error);
+        toast.error(`Erro ao criar alerta: ${error.message}`);
         return;
       }
 
+      console.log('✅ Alerta criado com sucesso!', data);
       setHasAlert(true);
       setAlertId(data.id);
       setShowModal(false);
       toast.success('✅ Alerta criado! Você será notificado quando o preço baixar.');
     } catch (error) {
-      console.error('Error creating alert:', error);
-      toast.error('Erro ao criar alerta');
+      console.error('❌ Exceção ao criar alerta:', error);
+      toast.error(`Erro ao criar alerta: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -147,7 +157,7 @@ export function PriceAlertButton({
     }
   };
 
-  if (!userEmail) {
+  if (!user?.email) {
     return (
       <Button
         onClick={() => toast.info('Faça login para criar alertas de preço')}

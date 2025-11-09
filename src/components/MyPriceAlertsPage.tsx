@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bell, Trash2, TrendingDown, Package, ArrowLeft } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import { useAuth } from '../hooks/useAuth';
+import { useKZStore } from '../hooks/useKZStore';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -11,14 +12,14 @@ import { SEO } from './SEO';
 interface PriceAlert {
   id: string;
   user_email: string;
-  product_id: number;
+  product_id: string;
   target_price: number;
   created_at: string;
   product?: {
-    id: number;
+    id: string;
     nome: string;
-    preco: number;
-    imagem: string;
+    preco_aoa: number;
+    imagem_url: string;
     estoque: number;
   };
 }
@@ -29,14 +30,22 @@ type MyPriceAlertsPageProps = {
 
 export default function MyPriceAlertsPage({ onNavigate }: MyPriceAlertsPageProps) {
   const { user } = useAuth();
+  const { products, fetchProducts } = useKZStore();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.email) {
+    // Carregar produtos se não estiverem carregados
+    if (products.length === 0) {
+      fetchProducts();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.email && products.length > 0) {
       loadAlerts();
     }
-  }, [user]);
+  }, [user, products]);
 
   const loadAlerts = async () => {
     if (!user?.email) return;
@@ -53,22 +62,17 @@ export default function MyPriceAlertsPage({ onNavigate }: MyPriceAlertsPageProps
 
       if (alertsError) throw alertsError;
 
-      // Buscar informações dos produtos
+      console.log('📋 Alertas do Supabase:', alertsData);
+      console.log('🛍️ Produtos do store:', products);
+
+      // Combinar alertas com produtos do store local
       if (alertsData && alertsData.length > 0) {
-        const productIds = [...new Set(alertsData.map(a => a.product_id))];
-        const { data: productsData, error: productsError } = await supabase
-          .from('produtos')
-          .select('id, nome, preco, imagem, estoque')
-          .in('id', productIds);
-
-        if (productsError) throw productsError;
-
-        // Combinar alertas com produtos
         const alertsWithProducts = alertsData.map(alert => ({
           ...alert,
-          product: productsData?.find(p => p.id === alert.product_id)
+          product: products.find(p => p.id === alert.product_id)
         }));
 
+        console.log('✅ Alertas combinados:', alertsWithProducts);
         setAlerts(alertsWithProducts);
       } else {
         setAlerts([]);
@@ -190,8 +194,8 @@ export default function MyPriceAlertsPage({ onNavigate }: MyPriceAlertsPageProps
             {alerts.map((alert) => {
               if (!alert.product) return null;
 
-              const priceReached = alert.product.preco <= alert.target_price;
-              const discount = ((1 - alert.target_price / alert.product.preco) * 100).toFixed(0);
+              const priceReached = alert.product.preco_aoa <= alert.target_price;
+              const discount = ((1 - alert.target_price / alert.product.preco_aoa) * 100).toFixed(0);
 
               return (
                 <Card key={alert.id} className={priceReached ? 'border-green-500 border-2' : ''}>
@@ -203,7 +207,7 @@ export default function MyPriceAlertsPage({ onNavigate }: MyPriceAlertsPageProps
                         className="flex-shrink-0"
                       >
                         <img
-                          src={alert.product.imagem}
+                          src={alert.product.imagem_url}
                           alt={alert.product.nome}
                           className="w-32 h-32 object-cover rounded-lg hover:opacity-75 transition"
                         />
@@ -223,7 +227,7 @@ export default function MyPriceAlertsPage({ onNavigate }: MyPriceAlertsPageProps
                           <div className="flex items-baseline gap-2">
                             <span className="text-sm text-gray-600">Preço Atual:</span>
                             <span className="text-2xl font-bold">
-                              {alert.product.preco.toLocaleString('pt-AO')} Kz
+                              {alert.product.preco_aoa.toLocaleString('pt-AO')} Kz
                             </span>
                           </div>
 

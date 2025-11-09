@@ -152,12 +152,12 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
   const handleLogout = async () => {
     if (confirm('Tem certeza que deseja sair?')) {
       try {
-        await supabase.auth.signOut();
-        setAuthToken(undefined);
+        await logout();
         onBack();
       } catch (error) {
         console.error('Error logging out:', error);
-        alert('Erro ao fazer logout');
+        // Não mostrar alerta, o logout já foi feito
+        onBack();
       }
     }
   };
