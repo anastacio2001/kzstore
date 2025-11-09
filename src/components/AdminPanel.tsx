@@ -47,7 +47,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  const { user } = useAuth();
+  const { user, logout: signOut } = useAuth();
   
   const { 
     products, 
@@ -152,11 +152,11 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
   const handleLogout = async () => {
     if (confirm('Tem certeza que deseja sair?')) {
       try {
-        await logout();
+        await signOut();
         onBack();
       } catch (error) {
         console.error('Error logging out:', error);
-        // Não mostrar alerta, o logout já foi feito
+        // Mesmo com erro, redirecionar para home
         onBack();
       }
     }
