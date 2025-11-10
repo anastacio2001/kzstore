@@ -166,7 +166,7 @@ export default function TradeInCredits() {
             <div>
               <p className="text-green-100 text-sm font-medium">Crédito Disponível</p>
               <p className="text-4xl font-bold mt-2">
-                R$ {totalAvailableCredit.toFixed(2)}
+                {totalAvailableCredit.toLocaleString('pt-AO')} Kz
               </p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
@@ -183,7 +183,7 @@ export default function TradeInCredits() {
             <div>
               <p className="text-gray-400 text-sm font-medium">Total Utilizado</p>
               <p className="text-3xl font-bold text-white mt-2">
-                R$ {totalUsedCredit.toFixed(2)}
+                {totalUsedCredit.toLocaleString('pt-AO')} Kz
               </p>
             </div>
             <div className="bg-blue-500/20 p-3 rounded-lg">
@@ -200,7 +200,7 @@ export default function TradeInCredits() {
             <div>
               <p className="text-gray-400 text-sm font-medium">Crédito Expirado</p>
               <p className="text-3xl font-bold text-white mt-2">
-                R$ {totalExpiredCredit.toFixed(2)}
+                {totalExpiredCredit.toLocaleString('pt-AO')} Kz
               </p>
             </div>
             <div className="bg-red-500/20 p-3 rounded-lg">
@@ -296,7 +296,7 @@ export default function TradeInCredits() {
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-green-400">
-                            R$ {availableAmount.toFixed(2)}
+                            {availableAmount.toLocaleString('pt-AO')} Kz
                           </p>
                           <p className="text-gray-400 text-sm">disponível</p>
                         </div>
@@ -308,7 +308,7 @@ export default function TradeInCredits() {
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="text-gray-400">Utilizado</span>
                             <span className="text-gray-400">
-                              R$ {credit.used_amount.toFixed(2)} / R$ {credit.amount.toFixed(2)}
+                              {credit.used_amount.toLocaleString('pt-AO')} Kz / {credit.amount.toLocaleString('pt-AO')} Kz
                             </span>
                           </div>
                           <div className="w-full bg-gray-700 rounded-full h-2">
@@ -412,7 +412,7 @@ export default function TradeInCredits() {
                             #{usage.order_id.slice(0, 8)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-400">
-                            - R$ {usage.amount_used.toFixed(2)}
+                            - {usage.amount_used.toLocaleString('pt-AO')} Kz
                           </td>
                         </tr>
                       ))}

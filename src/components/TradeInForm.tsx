@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Package, Upload, CheckCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../utils/supabase/client';
 import { useAuth } from '../hooks/useAuth';
+import { createClient } from '@supabase/supabase-js';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+
+const supabase = createClient(
+  `https://${projectId}.supabase.co`,
+  publicAnonKey
+);
 
 export function TradeInForm() {
   const { user } = useAuth();
@@ -15,7 +21,7 @@ export function TradeInForm() {
     has_box: false,
     has_accessories: false,
     description: '',
-    customer_name: user?.user_metadata?.full_name || '',
+    customer_name: user?.email?.split('@')[0] || '',
     customer_phone: ''
   });
 
@@ -51,22 +57,28 @@ export function TradeInForm() {
 
     for (const file of imageFiles) {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `trade-in/${fileName}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(filePath, file);
+      console.log('Uploading to trade-in bucket:', filePath);
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('trade-in')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) {
         console.error('Error uploading image:', uploadError);
-        continue;
+        throw new Error(`Falha ao fazer upload das imagens: ${uploadError.message}`);
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('products')
+        .from('trade-in')
         .getPublicUrl(filePath);
 
+      console.log('Uploaded successfully:', publicUrl);
       uploadedUrls.push(publicUrl);
     }
 
@@ -112,15 +124,18 @@ export function TradeInForm() {
 
     try {
       // Upload das imagens
+      console.log('Iniciando upload de', imageFiles.length, 'imagens...');
       const imageUrls = await uploadImages();
+      console.log('Upload concluído. URLs:', imageUrls);
 
       if (imageUrls.length === 0) {
-        throw new Error('Falha ao fazer upload das imagens');
+        throw new Error('Falha ao fazer upload das imagens. Verifique se o bucket "trade-in" existe no Supabase Storage.');
       }
 
       const estimatedValue = calculateEstimate();
 
       // Criar solicitação de trade-in
+      console.log('Criando solicitação de trade-in...');
       const { error } = await supabase
         .from('trade_in_requests')
         .insert({
@@ -139,13 +154,23 @@ export function TradeInForm() {
           status: 'pending'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao inserir no banco:', error);
+        throw error;
+      }
 
+      console.log('Solicitação criada com sucesso!');
       setSubmitted(true);
       alert('Solicitação enviada com sucesso! Você receberá uma avaliação em até 48h.');
     } catch (error: any) {
       console.error('Error submitting trade-in:', error);
-      alert(error.message || 'Erro ao enviar solicitação');
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        statusCode: error.statusCode,
+        details: error.details
+      });
+      alert(error.message || 'Erro ao enviar solicitação. Verifique o console para mais detalhes.');
     } finally {
       setLoading(false);
     }
@@ -173,7 +198,7 @@ export function TradeInForm() {
               has_box: false,
               has_accessories: false,
               description: '',
-              customer_name: user?.user_metadata?.full_name || '',
+              customer_name: user?.email?.split('@')[0] || '',
               customer_phone: ''
             });
             setImageFiles([]);

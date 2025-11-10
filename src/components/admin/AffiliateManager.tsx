@@ -284,7 +284,7 @@ export default function AffiliateManager() {
             <div>
               <p className="text-gray-400 text-sm">Comissões Pagas</p>
               <p className="text-3xl font-bold text-white mt-1">
-                R$ {totalCommissionsPaid.toFixed(2)}
+                {totalCommissionsPaid.toLocaleString('pt-AO')} Kz
               </p>
             </div>
             <div className="bg-blue-500/20 p-3 rounded-lg">
@@ -298,7 +298,7 @@ export default function AffiliateManager() {
             <div>
               <p className="text-gray-400 text-sm">Comissões Pendentes</p>
               <p className="text-3xl font-bold text-white mt-1">
-                R$ {totalCommissionsPending.toFixed(2)}
+                {totalCommissionsPending.toLocaleString('pt-AO')} Kz
               </p>
             </div>
             <div className="bg-orange-500/20 p-3 rounded-lg">
@@ -387,7 +387,7 @@ export default function AffiliateManager() {
                         <span className="text-gray-500 ml-2">({conversionRate}%)</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-400">
-                        R$ {affiliate.total_commission.toFixed(2)}
+                        {affiliate.total_commission.toLocaleString('pt-AO')} Kz
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex items-center gap-1 text-xs leading-5 font-semibold rounded-full ${statusBadge.class}`}>
@@ -452,14 +452,14 @@ export default function AffiliateManager() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Valor (R$)
+                  Valor (Kz)
                 </label>
                 <input
                   type="number"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
                   className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  step="0.01"
+                  step="1"
                   min="0"
                 />
               </div>

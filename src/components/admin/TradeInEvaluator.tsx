@@ -11,27 +11,28 @@ const supabase = createClient(
 
 interface TradeInRequest {
   id: string;
-  user_id: string;
-  product_name: string;
-  product_brand: string;
+  customer_email: string;
+  customer_name: string;
+  customer_phone: string;
   product_model: string;
-  condition: string;
+  product_brand: string;
+  product_condition: string;
+  product_year: number | null;
   has_box: boolean;
   has_accessories: boolean;
-  purchase_date: string;
-  estimated_value: number;
   description: string | null;
   images: string[];
-  status: 'pending' | 'evaluating' | 'approved' | 'rejected';
+  estimated_value: number;
+  status: 'pending' | 'evaluating' | 'approved' | 'rejected' | 'device_received' | 'completed' | 'cancelled';
   created_at: string;
-  user_email?: string;
+  updated_at: string;
 }
 
 interface TradeInEvaluation {
   request_id: string;
-  appraised_value: number;
-  notes: string;
-  approved: boolean;
+  final_value: number;
+  evaluation_notes: string;
+  approved_by: string;
 }
 
 export default function TradeInEvaluator() {
@@ -51,13 +52,11 @@ export default function TradeInEvaluator() {
   async function loadRequests() {
     try {
       setLoading(true);
+      console.log('Carregando solicitações com filtro:', filter);
       
       let query = supabase
         .from('trade_in_requests')
-        .select(`
-          *,
-          profiles:user_id (email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -68,14 +67,13 @@ export default function TradeInEvaluator() {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao carregar:', error);
+        throw error;
+      }
 
-      const requestsWithEmail = (data || []).map(req => ({
-        ...req,
-        user_email: req.profiles?.email || 'N/A'
-      }));
-
-      setRequests(requestsWithEmail);
+      console.log('Solicitações carregadas:', data);
+      setRequests(data || []);
     } catch (error: any) {
       console.error('Error loading requests:', error);
       toast.error('Erro ao carregar solicitações');
@@ -132,9 +130,9 @@ export default function TradeInEvaluator() {
         .from('trade_in_evaluations')
         .insert({
           request_id: selectedRequest.id,
-          appraised_value: approved ? appraisedValue : 0,
-          notes: evaluationNotes,
-          approved
+          final_value: approved ? appraisedValue : 0,
+          evaluation_notes: evaluationNotes,
+          approved_by: 'kzstoregeral@gmail.com' // TODO: Get from auth context
         });
 
       if (evalError) throw evalError;
@@ -269,9 +267,9 @@ export default function TradeInEvaluator() {
             <div>
               <p className="text-gray-400 text-sm">Valor Médio Estimado</p>
               <p className="text-3xl font-bold text-white mt-1">
-                R$ {requests.length > 0 
-                  ? (requests.reduce((sum, r) => sum + r.estimated_value, 0) / requests.length).toFixed(0)
-                  : '0'}
+                {requests.length > 0 
+                  ? (requests.reduce((sum, r) => sum + r.estimated_value, 0) / requests.length).toLocaleString('pt-AO')
+                  : '0'} Kz
               </p>
             </div>
             <div className="bg-green-500/20 p-3 rounded-lg">
@@ -327,19 +325,24 @@ export default function TradeInEvaluator() {
                           <div className="text-sm font-medium text-white">
                             {request.product_brand} {request.product_model}
                           </div>
-                          <div className="text-sm text-gray-400">{request.product_name}</div>
+                          <div className="text-sm text-gray-400">
+                            Ano: {request.product_year || 'N/A'}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {request.user_email}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm text-gray-300">{request.customer_name}</div>
+                          <div className="text-xs text-gray-400">{request.customer_email}</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConditionBadge(request.condition)}`}>
-                          {request.condition}
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConditionBadge(request.product_condition)}`}>
+                          {request.product_condition}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-400">
-                        R$ {request.estimated_value.toFixed(2)}
+                        {request.estimated_value.toLocaleString('pt-AO')} Kz
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusBadge.class}`}>
@@ -382,9 +385,11 @@ export default function TradeInEvaluator() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Produto
+                    Cliente
                   </label>
-                  <p className="text-white">{selectedRequest.product_name}</p>
+                  <p className="text-white">{selectedRequest.customer_name}</p>
+                  <p className="text-sm text-gray-400">{selectedRequest.customer_email}</p>
+                  <p className="text-sm text-gray-400">{selectedRequest.customer_phone}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
@@ -398,16 +403,16 @@ export default function TradeInEvaluator() {
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Condição
                   </label>
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConditionBadge(selectedRequest.condition)}`}>
-                    {selectedRequest.condition}
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getConditionBadge(selectedRequest.product_condition)}`}>
+                    {selectedRequest.product_condition}
                   </span>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Data de Compra
+                    Ano do Produto
                   </label>
                   <p className="text-white">
-                    {new Date(selectedRequest.purchase_date).toLocaleDateString('pt-BR')}
+                    {selectedRequest.product_year || 'Não informado'}
                   </p>
                 </div>
                 <div>
@@ -423,10 +428,10 @@ export default function TradeInEvaluator() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Valor Estimado (Cliente)
+                    Valor Estimado (Sistema)
                   </label>
                   <p className="text-green-400 font-semibold">
-                    R$ {selectedRequest.estimated_value.toFixed(2)}
+                    {selectedRequest.estimated_value.toLocaleString('pt-AO')} Kz
                   </p>
                 </div>
               </div>
@@ -475,14 +480,14 @@ export default function TradeInEvaluator() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Valor Avaliado (R$)
+                    Valor Avaliado (Kz)
                   </label>
                   <input
                     type="number"
                     value={appraisedValue}
                     onChange={(e) => setAppraisedValue(parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    step="0.01"
+                    step="1"
                     min="0"
                   />
                 </div>
