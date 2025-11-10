@@ -358,7 +358,7 @@ export default function QuoteBuilder() {
                     <div className="text-right">
                       <p className="text-gray-400 text-sm">Valor Total</p>
                       <p className="text-2xl font-bold text-green-400">
-                        R$ {quote.total_amount.toFixed(2)}
+                        {quote.total_amount.toLocaleString('pt-AO')} Kz
                       </p>
                       {quote.valid_until && (
                         <p className="text-gray-500 text-xs mt-1">
@@ -386,7 +386,7 @@ export default function QuoteBuilder() {
                             <p className="text-gray-400">Qtd: {item.quantity}</p>
                             {item.unit_price && (
                               <p className="text-green-400 font-medium">
-                                R$ {item.total_price?.toFixed(2)}
+                                {item.total_price?.toLocaleString('pt-AO')} Kz
                               </p>
                             )}
                           </div>
@@ -475,7 +475,7 @@ export default function QuoteBuilder() {
                             <option value="">Selecione ou digite manualmente</option>
                             {products.map(product => (
                               <option key={product.id} value={product.id}>
-                                {product.name} - R$ {product.price.toFixed(2)}
+                                {product.name} - {product.price.toLocaleString('pt-AO')} Kz
                               </option>
                             ))}
                           </select>
@@ -520,7 +520,7 @@ export default function QuoteBuilder() {
                         <div className="ml-4 text-right">
                           <p className="text-xs text-gray-400">Total</p>
                           <p className="text-lg font-bold text-green-400">
-                            R$ {item.total_price.toFixed(2)}
+                            {item.total_price.toLocaleString('pt-AO')} Kz
                           </p>
                         </div>
                       </div>
@@ -534,7 +534,7 @@ export default function QuoteBuilder() {
                 <div className="flex items-center justify-between">
                   <p className="text-lg font-semibold text-yellow-400">Total da Proposta</p>
                   <p className="text-3xl font-bold text-yellow-400">
-                    R$ {totalAmount.toFixed(2)}
+                    {totalAmount.toLocaleString('pt-AO')} Kz
                   </p>
                 </div>
               </div>

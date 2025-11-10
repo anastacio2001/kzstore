@@ -342,11 +342,11 @@ export default function BusinessRegistration() {
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Selecione uma faixa</option>
-                <option value="0-5000">Até R$ 5.000</option>
-                <option value="5000-15000">R$ 5.000 - R$ 15.000</option>
-                <option value="15000-30000">R$ 15.000 - R$ 30.000</option>
-                <option value="30000-50000">R$ 30.000 - R$ 50.000</option>
-                <option value="50000+">Acima de R$ 50.000</option>
+                <option value="0-50000">Até 50.000 Kz</option>
+                <option value="50000-150000">50.000 Kz - 150.000 Kz</option>
+                <option value="150000-300000">150.000 Kz - 300.000 Kz</option>
+                <option value="300000-500000">300.000 Kz - 500.000 Kz</option>
+                <option value="500000+">Acima de 500.000 Kz</option>
               </select>
             </div>
 
