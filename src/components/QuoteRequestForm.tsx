@@ -112,78 +112,79 @@ export default function QuoteRequestForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-gray-800 rounded-lg p-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="bg-yellow-500/20 p-3 rounded-lg">
-            <FileText className="w-6 h-6 text-yellow-400" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-24 pb-12">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-yellow-100 p-3 rounded-lg">
+              <FileText className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Solicitar Orçamento</h1>
+              <p className="text-gray-600 text-sm">
+                Preencha os dados e receberá uma proposta personalizada em até 24h
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Solicitar Orçamento</h1>
-            <p className="text-gray-400 text-sm">
-              Preencha os dados e receberá uma proposta personalizada em até 24h
-            </p>
-          </div>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Info */}
-          <div className="bg-gray-900 rounded-lg p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Dados de Contato</h3>
+          <div className="bg-gray-50 rounded-lg p-6 space-y-4 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados de Contato</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nome Completo *
                 </label>
                 <input
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   placeholder="Seu nome"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   E-mail *
                 </label>
                 <input
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   placeholder="seu@email.com"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Telefone/WhatsApp *
                 </label>
                 <input
                   type="tel"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  placeholder="(11) 99999-9999"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="+244 9XX XXX XXX"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Empresa (Opcional)
                 </label>
                 <input
                   type="text"
                   value={customerCompany}
                   onChange={(e) => setCustomerCompany(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                   placeholder="Nome da empresa"
                 />
               </div>
@@ -191,9 +192,9 @@ export default function QuoteRequestForm() {
           </div>
 
           {/* Quote Items */}
-          <div className="bg-gray-900 rounded-lg p-6">
+          <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Itens do Orçamento</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Itens do Orçamento</h3>
               <button
                 type="button"
                 onClick={addItem}
