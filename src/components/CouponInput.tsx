@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { toast } from 'sonner';
+import { checkRateLimit, getBrowserFingerprint } from '../utils/rateLimiter';
 
 type Coupon = {
   id: string;
@@ -28,6 +29,15 @@ export function CouponInput({ cartTotal, onCouponApply, onCouponRemove, appliedC
   const handleValidateCoupon = async () => {
     if (!couponCode.trim()) {
       toast.error('Digite um código de cupom');
+      return;
+    }
+
+    // ✅ RATE LIMITING: Prevenir spam de tentativas
+    const fingerprint = getBrowserFingerprint();
+    const rateCheck = checkRateLimit('COUPON', fingerprint);
+    
+    if (!rateCheck.allowed) {
+      toast.error(`Muitas tentativas. Aguarde ${rateCheck.blockedTime} segundos.`);
       return;
     }
 
