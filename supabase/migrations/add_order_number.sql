@@ -41,9 +41,15 @@ CREATE TRIGGER trigger_set_order_number
   EXECUTE FUNCTION set_order_number();
 
 -- Atualizar pedidos existentes com números amigáveis
-UPDATE orders 
-SET order_number = 'KZ' || LPAD(ROW_NUMBER() OVER (ORDER BY created_at)::TEXT, 6, '0')
-WHERE order_number IS NULL;
+WITH numbered_orders AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) as rn
+  FROM orders
+  WHERE order_number IS NULL
+)
+UPDATE orders
+SET order_number = 'KZ' || LPAD(numbered_orders.rn::TEXT, 6, '0')
+FROM numbered_orders
+WHERE orders.id = numbered_orders.id;
 
 -- Criar índice único para order_number
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number);
