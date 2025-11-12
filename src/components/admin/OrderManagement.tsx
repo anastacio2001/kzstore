@@ -177,11 +177,11 @@ export function OrderManagement({ orders, onUpdateStatus }: OrderManagementProps
               ) : (
                 sortedOrders.map(order => (
                   <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-[#E31E24]">{order.id}</td>
+                    <td className="px-6 py-4 text-sm text-[#E31E24]">{order.order_number || order.id}</td>
                     <td className="px-6 py-4 text-sm">
                       <div>
-                        <p>{order.customer?.nome || 'N/A'}</p>
-                        <p className="text-xs text-gray-500">{order.customer?.telefone}</p>
+                        <p>{order.customer_name || order.customer?.nome || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">{order.customer_phone || order.customer?.telefone || ''}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm">
@@ -222,7 +222,7 @@ export function OrderManagement({ orders, onUpdateStatus }: OrderManagementProps
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-              <h2>Detalhes do Pedido {selectedOrder.id}</h2>
+              <h2>Detalhes do Pedido {selectedOrder.order_number || selectedOrder.id}</h2>
               <Button variant="ghost" size="sm" onClick={() => setSelectedOrder(null)}>
                 <X className="size-5" />
               </Button>
@@ -235,23 +235,23 @@ export function OrderManagement({ orders, onUpdateStatus }: OrderManagementProps
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-gray-600">Nome:</span>
-                    <p>{selectedOrder.customer?.nome}</p>
+                    <p>{selectedOrder.customer_name || selectedOrder.customer?.nome || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="text-gray-600">Telefone:</span>
-                    <p>{selectedOrder.customer?.telefone}</p>
+                    <p>{selectedOrder.customer_phone || selectedOrder.customer?.telefone || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="text-gray-600">Email:</span>
-                    <p>{selectedOrder.customer?.email || 'N/A'}</p>
+                    <p>{selectedOrder.customer_email || selectedOrder.customer?.email || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="text-gray-600">Cidade:</span>
-                    <p>{selectedOrder.customer?.cidade}</p>
+                    <p>{selectedOrder.customer?.cidade || 'N/A'}</p>
                   </div>
                   <div className="md:col-span-2">
                     <span className="text-gray-600">Endereço:</span>
-                    <p>{selectedOrder.customer?.endereco}</p>
+                    <p>{selectedOrder.customer_address || selectedOrder.customer?.endereco || 'N/A'}</p>
                   </div>
                   {selectedOrder.customer?.observacoes && (
                     <div className="md:col-span-2">
