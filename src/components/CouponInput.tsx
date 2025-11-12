@@ -45,24 +45,9 @@ export function CouponInput({ cartTotal, onCouponApply, onCouponRemove, appliedC
         }
       );
 
-      let coupons = await response.json();
+      const coupons = await response.json();
 
-      // TEMP: Sempre adicionar cupom de teste TESTE10 independente da API
-      if (couponCode.toUpperCase() === 'TESTE10') {
-        coupons = [{
-          id: 'test-coupon',
-          code: 'TESTE10',
-          discount_type: 'percentage',
-          discount_value: 10,
-          min_purchase: 10000,
-          max_uses: 100,
-          used_count: 0,
-          start_date: '2024-01-01T00:00:00Z',
-          end_date: '2025-12-31T23:59:59Z',
-          description: 'Cupom de teste 10%',
-          is_active: true
-        }];
-      } else if (!response.ok || coupons.length === 0) {
+      if (!response.ok || coupons.length === 0) {
         throw new Error('Cupom não encontrado');
       }
 

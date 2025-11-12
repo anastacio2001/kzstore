@@ -49,10 +49,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10, 2) DEFAU
 ALTER TABLE coupons DISABLE ROW LEVEL SECURITY;
 
 -- Inserir cupons de exemplo
-INSERT INTO coupons (code, discount_type, discount_value, min_purchase, description) VALUES
-  ('BEMVINDO10', 'percentage', 10, 0, 'Desconto de 10% para novos clientes'),
-  ('KZSTORE50', 'fixed', 50, 500, 'Kz 50 de desconto em compras acima de Kz 500'),
-  ('FRETEGRATIS', 'fixed', 100, 1000, 'Frete grátis em compras acima de Kz 1000')
+INSERT INTO coupons (code, discount_type, discount_value, min_purchase, description, start_date, end_date) VALUES
+  ('BEMVINDO10', 'percentage', 10, 0, 'Desconto de 10% para novos clientes', NOW(), NOW() + INTERVAL '1 year'),
+  ('KZSTORE50', 'fixed', 50, 500, 'Kz 50 de desconto em compras acima de Kz 500', NOW(), NOW() + INTERVAL '1 year'),
+  ('FRETEGRATIS', 'fixed', 100, 1000, 'Frete grátis em compras acima de Kz 1000', NOW(), NOW() + INTERVAL '1 year')
 ON CONFLICT (code) DO NOTHING;
 
 -- ====================================================================

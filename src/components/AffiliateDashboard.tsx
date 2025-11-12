@@ -102,7 +102,7 @@ export function AffiliateDashboard() {
         .from('affiliates')
         .insert({
           user_email: user?.email,
-          user_name: user?.user_metadata?.full_name || user?.email,
+          user_name: (user as any)?.user_metadata?.full_name || user?.email,
           status: 'active'
         })
         .select()

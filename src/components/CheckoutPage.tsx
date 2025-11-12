@@ -187,6 +187,25 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack }: Check
   const handleConfirmPayment = async () => {
     setIsCreatingOrder(true);
     try {
+      // ✅ VALIDAÇÃO DE ESTOQUE
+      for (const item of cart) {
+        const { data: product, error } = await supabase
+          .from('products')
+          .select('estoque, nome')
+          .eq('id', item.product.id)
+          .single();
+
+        if (error) {
+          throw new Error('Erro ao verificar estoque');
+        }
+
+        if (!product || product.estoque < item.quantity) {
+          toast.error(`Produto "${product?.nome || item.product.nome}" sem estoque suficiente. Disponível: ${product?.estoque || 0}`);
+          setIsCreatingOrder(false);
+          return;
+        }
+      }
+
       const orderData = {
         user_id: user?.id || null,
         customer_name: formData.nome,
