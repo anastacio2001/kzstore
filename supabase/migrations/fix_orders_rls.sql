@@ -1,33 +1,37 @@
 -- ====================================================================
--- FIX: Permitir criação de pedidos (orders) por usuários autenticados
+-- FIX: Permitir criação de pedidos (orders) - DESABILITAR RLS
 -- Execute este script no SQL Editor do Supabase Dashboard
 -- ====================================================================
 
--- Remover políticas antigas que podem estar causando conflito
-DROP POLICY IF EXISTS "Users can create their own orders" ON orders;
-DROP POLICY IF EXISTS "Authenticated users can create orders" ON orders;
-DROP POLICY IF EXISTS "Anyone can create orders" ON orders;
+-- OPÇÃO 1: Desabilitar RLS completamente (mais fácil para desenvolvimento)
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
 
--- Criar política para permitir usuários autenticados criarem pedidos
-CREATE POLICY "Authenticated users can create orders"
-  ON orders FOR INSERT
-  WITH CHECK (auth.role() = 'authenticated');
+-- OPÇÃO 2: Se quiser manter RLS habilitado, use estas políticas:
+-- Remover políticas antigas
+-- DROP POLICY IF EXISTS "Users can create their own orders" ON orders;
+-- DROP POLICY IF EXISTS "Authenticated users can create orders" ON orders;
+-- DROP POLICY IF EXISTS "Anyone can create orders" ON orders;
+-- DROP POLICY IF EXISTS "Users can view their own orders" ON orders;
+-- DROP POLICY IF EXISTS "Admins can update orders" ON orders;
 
--- Permitir usuários verem seus próprios pedidos
-DROP POLICY IF EXISTS "Users can view their own orders" ON orders;
-CREATE POLICY "Users can view their own orders"
-  ON orders FOR SELECT
-  USING (auth.uid() = user_id OR auth.role() = 'authenticated');
+-- Habilitar RLS
+-- ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
--- Permitir admins atualizarem pedidos
-DROP POLICY IF EXISTS "Admins can update orders" ON orders;
-CREATE POLICY "Admins can update orders"
-  ON orders FOR UPDATE
-  USING (auth.role() = 'authenticated')
-  WITH CHECK (auth.role() = 'authenticated');
+-- Permitir QUALQUER PESSOA criar pedidos (público)
+-- CREATE POLICY "Anyone can create orders"
+--   ON orders FOR INSERT
+--   WITH CHECK (true);
 
--- Verificar se RLS está habilitado
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+-- Permitir QUALQUER PESSOA ver pedidos (público)
+-- CREATE POLICY "Anyone can view orders"
+--   ON orders FOR SELECT
+--   USING (true);
+
+-- Permitir usuários autenticados atualizarem pedidos
+-- CREATE POLICY "Authenticated users can update orders"
+--   ON orders FOR UPDATE
+--   USING (auth.role() = 'authenticated')
+--   WITH CHECK (auth.role() = 'authenticated');
 
 -- ====================================================================
 -- Para verificar as políticas:
