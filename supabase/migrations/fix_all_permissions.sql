@@ -1,0 +1,66 @@
+-- ====================================================================
+-- CORRIGIR PERMISSÕES COMPLETAS - AFILIADOS E PRÉ-VENDAS
+-- ====================================================================
+
+-- 1. TABELA USERS
+ALTER TABLE IF EXISTS users DISABLE ROW LEVEL SECURITY;
+
+-- 2. SISTEMA DE AFILIADOS
+ALTER TABLE IF EXISTS affiliates DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS affiliate_links DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS affiliate_clicks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS affiliate_sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS affiliate_payments DISABLE ROW LEVEL SECURITY;
+
+-- 3. PRÉ-VENDAS
+ALTER TABLE IF EXISTS pre_sale_products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS pre_sale_reservations DISABLE ROW LEVEL SECURITY;
+
+-- 4. CUPONS
+ALTER TABLE IF EXISTS coupons DISABLE ROW LEVEL SECURITY;
+
+-- 5. OUTRAS TABELAS IMPORTANTES
+ALTER TABLE IF EXISTS products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS customers DISABLE ROW LEVEL SECURITY;
+
+-- 6. LOYALTY E REVIEWS
+ALTER TABLE IF EXISTS loyalty_points DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS reviews DISABLE ROW LEVEL SECURITY;
+
+-- 7. FLASH SALES
+ALTER TABLE IF EXISTS flash_sales DISABLE ROW LEVEL SECURITY;
+
+-- 8. CATEGORIAS E HERO
+ALTER TABLE IF EXISTS categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS subcategories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS hero_sections DISABLE ROW LEVEL SECURITY;
+
+-- 9. ANÚNCIOS E EQUIPE
+ALTER TABLE IF EXISTS ads DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS team_members DISABLE ROW LEVEL SECURITY;
+
+-- 10. TICKETS E ALERTAS
+ALTER TABLE IF EXISTS support_tickets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS price_alerts DISABLE ROW LEVEL SECURITY;
+
+-- 11. TRADE-IN E B2B
+ALTER TABLE IF EXISTS trade_in_requests DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS b2b_clients DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS quote_requests DISABLE ROW LEVEL SECURITY;
+
+-- ====================================================================
+-- NOTA: Isso desabilita RLS para desenvolvimento
+-- Em produção, você deve criar políticas específicas
+-- ====================================================================
+
+-- Exemplo de política segura (comentado):
+-- CREATE POLICY "Allow authenticated read" ON affiliates
+--   FOR SELECT
+--   TO authenticated
+--   USING (true);
+
+-- CREATE POLICY "Allow user to read own data" ON affiliates
+--   FOR SELECT
+--   TO authenticated
+--   USING (user_email = auth.jwt() ->> 'email');
