@@ -218,7 +218,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack }: Check
       
       console.log('📦 Creating order:', orderData);
       const order = await createOrder(orderData);
-      const orderId = order.id || `KZ${Date.now().toString().slice(-8)}`;
+      const orderId = order.order_number || order.id || `KZ${Date.now().toString().slice(-8)}`;
       setOrderNumber(orderId);
       
       // ✨ FIDELIDADE: Resgatar pontos se o usuário optou por usar
