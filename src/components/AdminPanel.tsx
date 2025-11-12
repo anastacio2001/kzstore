@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3, DollarSign, Image as ImageIcon, Folder } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3, DollarSign, Image as ImageIcon, Folder, Tag } from 'lucide-react';
 import { Button } from './ui/button';
 import { useKZStore } from '../hooks/useKZStore';
 import { useAuth } from '../hooks/useAuth';
@@ -21,6 +21,7 @@ import B2BManager from './admin/B2BManager';
 import EmailCampaignBuilder from './admin/EmailCampaignBuilder';
 import HeroSectionManager from './admin/HeroSectionManager';
 import CategoryManager from './admin/CategoryManager';
+import { CouponManagement } from './admin/CouponManagement';
 import { Product } from '../App';
 import { supabase } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -43,7 +44,7 @@ type AdminPanelProps = {
   onBack: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics' | 'trade-ins' | 'affiliates' | 'quotes' | 'b2b' | 'email-campaigns' | 'hero-sections' | 'categories';
+type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics' | 'trade-ins' | 'affiliates' | 'quotes' | 'b2b' | 'email-campaigns' | 'hero-sections' | 'categories' | 'coupons';
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -418,6 +419,17 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
               <Folder className="inline-block mr-2 size-4" />
               Categorias
             </button>
+            <button
+              onClick={() => setActiveTab('coupons')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'coupons'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Tag className="inline-block mr-2 size-4" />
+              Cupons
+            </button>
           </div>
         </div>
       </div>
@@ -656,6 +668,10 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
 
       {activeTab === 'categories' && (
         <CategoryManager />
+      )}
+
+      {activeTab === 'coupons' && (
+        <CouponManagement />
       )}
 
       {/* Product Form Modal */}
