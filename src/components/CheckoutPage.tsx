@@ -188,14 +188,11 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack }: Check
     setIsCreatingOrder(true);
     try {
       const orderData = {
-        customer: {
-          nome: formData.nome,
-          telefone: formData.telefone,
-          email: formData.email,
-          endereco: `${formData.endereco}, ${formData.cidade}${formData.observacoes ? ` - ${formData.observacoes}` : ''}`,
-          cidade: formData.cidade,
-          observacoes: formData.observacoes
-        },
+        user_id: user?.id || null,
+        customer_name: formData.nome,
+        customer_email: formData.email,
+        customer_phone: formData.telefone,
+        customer_address: `${formData.endereco}, ${formData.cidade}${formData.observacoes ? ` - ${formData.observacoes}` : ''}`,
         items: cart.map(item => {
           const flashSale = flashSales.find(sale => 
             sale.product_id === item.product.id && sale.is_active
