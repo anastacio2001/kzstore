@@ -127,15 +127,6 @@ export function LoginPage({ onLogin, onBack }: LoginPageProps) {
                 </button>
               </div>
             </form>
-
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <p className="text-sm font-semibold text-blue-900 mb-2">Credenciais de Demonstração:</p>
-              <div className="space-y-1 text-sm text-blue-700">
-                <p><strong>Email:</strong> admin@kzstore.ao</p>
-                <p><strong>Senha:</strong> kzstore2024</p>
-              </div>
-            </div>
           </div>
         </div>
 
