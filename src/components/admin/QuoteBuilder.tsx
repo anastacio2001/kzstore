@@ -2,13 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Send, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useKZStore } from '../../hooks/useKZStore';
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+import { supabase } from '../../utils/supabase/client';
 
 interface CustomQuote {
   id: string;

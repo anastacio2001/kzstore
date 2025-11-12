@@ -2,13 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { CreditCard, Calendar, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+import { supabase } from '../utils/supabase/client';
 
 interface TradeInCredit {
   id: string;
@@ -57,29 +51,35 @@ export default function TradeInCredits() {
 
     try {
       setLoading(true);
+      console.log('🔍 Loading trade-in credits for:', user.email);
       
       const { data, error } = await supabase
         .from('trade_in_credits')
         .select(`
           *,
-          evaluation:trade_in_evaluation_id (
-            appraised_value,
-            notes,
+          evaluation:evaluation_id (
+            final_value,
+            evaluation_notes,
             request:request_id (
-              product_name,
+              product_model,
               product_brand,
-              product_model
+              product_condition
             )
           )
         `)
-        .eq('user_id', user.id)
+        .eq('customer_email', user.email)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('📊 Credits result:', { data, error, count: data?.length });
+
+      if (error) {
+        console.error('❌ Error loading credits:', error);
+        throw error;
+      }
 
       setCredits(data || []);
     } catch (error: any) {
-      console.error('Error loading credits:', error);
+      console.error('❌ Error loading credits:', error);
       toast.error('Erro ao carregar créditos');
     } finally {
       setLoading(false);
@@ -90,12 +90,19 @@ export default function TradeInCredits() {
     if (!user) return;
 
     try {
+      console.log('🔍 Loading usage history for:', user.email);
+      
       const { data: creditsData } = await supabase
         .from('trade_in_credits')
         .select('id')
-        .eq('user_id', user.id);
+        .eq('customer_email', user.email);
 
-      if (!creditsData) return;
+      console.log('📊 Found credits:', creditsData?.length);
+
+      if (!creditsData || creditsData.length === 0) {
+        setUsageHistory([]);
+        return;
+      }
 
       const creditIds = creditsData.map(c => c.id);
 
@@ -105,11 +112,13 @@ export default function TradeInCredits() {
         .in('credit_id', creditIds)
         .order('used_at', { ascending: false });
 
+      console.log('📊 Usage history result:', { data, error });
+
       if (error) throw error;
 
       setUsageHistory(data || []);
     } catch (error: any) {
-      console.error('Error loading usage history:', error);
+      console.error('❌ Error loading usage history:', error);
     }
   }
 
@@ -150,18 +159,19 @@ export default function TradeInCredits() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Meus Créditos Trade-In</h1>
-        <p className="text-gray-400 mt-2">
-          Gerencie seus créditos de troca e histórico de uso
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-24 pb-12">
+      <div className="max-w-6xl mx-auto px-6 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Meus Créditos Trade-In</h1>
+          <p className="text-gray-600 mt-2">
+            Gerencie seus créditos de troca e histórico de uso
+          </p>
+        </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-white shadow-md">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm font-medium">Crédito Disponível</p>
@@ -178,51 +188,51 @@ export default function TradeInCredits() {
           </p>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-white rounded-lg p-6 shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-medium">Total Utilizado</p>
-              <p className="text-3xl font-bold text-white mt-2">
+              <p className="text-gray-600 text-sm font-medium">Total Utilizado</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
                 {totalUsedCredit.toLocaleString('pt-AO')} Kz
               </p>
             </div>
-            <div className="bg-blue-500/20 p-3 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-blue-400" />
+            <div className="bg-blue-100 p-3 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-blue-600" />
             </div>
           </div>
-          <p className="text-gray-400 text-sm mt-4">
+          <p className="text-gray-600 text-sm mt-4">
             {usageHistory.length} utilização(ões)
           </p>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-white rounded-lg p-6 shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-medium">Crédito Expirado</p>
-              <p className="text-3xl font-bold text-white mt-2">
+              <p className="text-gray-600 text-sm font-medium">Crédito Expirado</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
                 {totalExpiredCredit.toLocaleString('pt-AO')} Kz
               </p>
             </div>
-            <div className="bg-red-500/20 p-3 rounded-lg">
-              <XCircle className="w-6 h-6 text-red-400" />
+            <div className="bg-red-100 p-3 rounded-lg">
+              <XCircle className="w-6 h-6 text-red-600" />
             </div>
           </div>
-          <p className="text-gray-400 text-sm mt-4">
+          <p className="text-gray-600 text-sm mt-4">
             {credits.filter(c => c.status === 'expired').length} crédito(s) expirado(s)
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-gray-800 rounded-lg">
-        <div className="border-b border-gray-700">
+      <div className="bg-white rounded-lg shadow-md">
+        <div className="border-b border-gray-200">
           <div className="flex">
             <button
               onClick={() => setActiveTab('credits')}
               className={`px-6 py-3 font-medium transition-colors ${
                 activeTab === 'credits'
-                  ? 'text-yellow-400 border-b-2 border-yellow-400'
-                  : 'text-gray-400 hover:text-gray-300'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Meus Créditos
@@ -231,8 +241,8 @@ export default function TradeInCredits() {
               onClick={() => setActiveTab('history')}
               className={`px-6 py-3 font-medium transition-colors ${
                 activeTab === 'history'
-                  ? 'text-yellow-400 border-b-2 border-yellow-400'
-                  : 'text-gray-400 hover:text-gray-300'
+                  ? 'text-yellow-600 border-b-2 border-yellow-600'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Histórico de Uso
@@ -245,11 +255,11 @@ export default function TradeInCredits() {
             <div className="space-y-4">
               {credits.length === 0 ? (
                 <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">
+                  <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     Nenhum crédito disponível
                   </h3>
-                  <p className="text-gray-400 mb-6">
+                  <p className="text-gray-600 mb-6">
                     Faça um trade-in de produtos usados para ganhar créditos
                   </p>
                   <button
@@ -270,18 +280,18 @@ export default function TradeInCredits() {
                   return (
                     <div
                       key={credit.id}
-                      className={`bg-gray-900 rounded-lg p-6 border-2 ${
+                      className={`bg-white rounded-lg p-6 border-2 shadow-sm ${
                         credit.status === 'active' 
                           ? expiringSoon 
-                            ? 'border-yellow-500/50' 
-                            : 'border-green-500/50'
-                          : 'border-gray-700'
+                            ? 'border-yellow-400' 
+                            : 'border-green-400'
+                          : 'border-gray-300'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold text-white">
+                            <h3 className="text-lg font-semibold text-gray-900">
                               {credit.evaluation?.request?.product_brand}{' '}
                               {credit.evaluation?.request?.product_model}
                             </h3>
@@ -290,15 +300,15 @@ export default function TradeInCredits() {
                               {statusBadge.label}
                             </span>
                           </div>
-                          <p className="text-gray-400 text-sm">
+                          <p className="text-gray-600 text-sm">
                             {credit.evaluation?.request?.product_name}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-green-400">
+                          <p className="text-2xl font-bold text-green-600">
                             {availableAmount.toLocaleString('pt-AO')} Kz
                           </p>
-                          <p className="text-gray-400 text-sm">disponível</p>
+                          <p className="text-gray-600 text-sm">disponível</p>
                         </div>
                       </div>
 
@@ -306,12 +316,12 @@ export default function TradeInCredits() {
                       {credit.used_amount > 0 && (
                         <div className="mb-4">
                           <div className="flex items-center justify-between text-sm mb-1">
-                            <span className="text-gray-400">Utilizado</span>
-                            <span className="text-gray-400">
+                            <span className="text-gray-600">Utilizado</span>
+                            <span className="text-gray-600">
                               {credit.used_amount.toLocaleString('pt-AO')} Kz / {credit.amount.toLocaleString('pt-AO')} Kz
                             </span>
                           </div>
-                          <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-blue-500 h-2 rounded-full transition-all"
                               style={{ width: `${(credit.used_amount / credit.amount) * 100}%` }}
@@ -322,7 +332,7 @@ export default function TradeInCredits() {
 
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 text-gray-400">
+                          <div className="flex items-center gap-2 text-gray-600">
                             <Calendar className="w-4 h-4" />
                             <span>
                               Criado em {new Date(credit.created_at).toLocaleDateString('pt-BR')}
@@ -330,10 +340,10 @@ export default function TradeInCredits() {
                           </div>
                           <div className={`flex items-center gap-2 ${
                             credit.status === 'expired' 
-                              ? 'text-red-400' 
+                              ? 'text-red-600' 
                               : expiringSoon 
-                                ? 'text-yellow-400' 
-                                : 'text-gray-400'
+                                ? 'text-yellow-600' 
+                                : 'text-gray-600'
                           }`}>
                             <Clock className="w-4 h-4" />
                             <span>
@@ -376,30 +386,30 @@ export default function TradeInCredits() {
                   <h3 className="text-xl font-semibold text-white mb-2">
                     Nenhum histórico de uso
                   </h3>
-                  <p className="text-gray-400">
+                  <p className="text-gray-600">
                     Você ainda não utilizou seus créditos
                   </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-900">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                           Data
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                           Pedido
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
                           Valor Utilizado
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-700">
+                    <tbody className="divide-y divide-gray-200">
                       {usageHistory.map((usage) => (
-                        <tr key={usage.id} className="hover:bg-gray-800/50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        <tr key={usage.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {new Date(usage.used_at).toLocaleDateString('pt-BR', {
                               day: '2-digit',
                               month: '2-digit',
@@ -408,10 +418,10 @@ export default function TradeInCredits() {
                               minute: '2-digit'
                             })}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">
                             #{usage.order_id.slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-400">
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-600">
                             - {usage.amount_used.toLocaleString('pt-AO')} Kz
                           </td>
                         </tr>
@@ -426,11 +436,11 @@ export default function TradeInCredits() {
       </div>
 
       {/* Info Card */}
-      <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-400 mb-3">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-blue-700 mb-3">
           ℹ️ Como funcionam os créditos Trade-In?
         </h3>
-        <ul className="space-y-2 text-gray-300 text-sm">
+        <ul className="space-y-2 text-gray-700 text-sm">
           <li>• Créditos são gerados quando seu trade-in é aprovado</li>
           <li>• Válidos por <strong>6 meses</strong> a partir da data de aprovação</li>
           <li>• Podem ser usados em <strong>qualquer compra</strong> na loja</li>
@@ -438,6 +448,7 @@ export default function TradeInCredits() {
           <li>• Utilize múltiplos créditos na mesma compra</li>
           <li>• Créditos não utilizados expiram automaticamente</li>
         </ul>
+      </div>
       </div>
     </div>
   );

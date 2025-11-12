@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3, DollarSign } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Package, ShoppingCart, Users, Plus, Edit, Trash2, Megaphone, UserCog, LogOut, Zap, MessageCircle, Star, Bell, Clock, RefreshCw, FileText, Building, Share2, Mail, BarChart3, DollarSign, Image as ImageIcon, Folder } from 'lucide-react';
 import { Button } from './ui/button';
 import { useKZStore } from '../hooks/useKZStore';
 import { useAuth } from '../hooks/useAuth';
@@ -17,15 +17,13 @@ import { AnalyticsDashboard } from './admin/AnalyticsDashboard';
 import TradeInEvaluator from './admin/TradeInEvaluator';
 import AffiliateManager from './admin/AffiliateManager';
 import QuoteBuilder from './admin/QuoteBuilder';
+import B2BManager from './admin/B2BManager';
 import EmailCampaignBuilder from './admin/EmailCampaignBuilder';
+import HeroSectionManager from './admin/HeroSectionManager';
+import CategoryManager from './admin/CategoryManager';
 import { Product } from '../App';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-d8a4dffd`;
 
@@ -45,7 +43,7 @@ type AdminPanelProps = {
   onBack: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics' | 'trade-ins' | 'affiliates' | 'quotes' | 'email-campaigns';
+type Tab = 'dashboard' | 'products' | 'orders' | 'customers' | 'ads' | 'team' | 'flash-sales' | 'tickets' | 'reviews' | 'price-alerts' | 'pre-sales' | 'analytics' | 'trade-ins' | 'affiliates' | 'quotes' | 'b2b' | 'email-campaigns' | 'hero-sections' | 'categories';
 
 export function AdminPanel({ onBack }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -366,6 +364,17 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
               Orçamentos
             </button>
             <button
+              onClick={() => setActiveTab('b2b')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'b2b'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Building className="inline-block mr-2 size-4" />
+              B2B
+            </button>
+            <button
               onClick={() => setActiveTab('email-campaigns')}
               className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'email-campaigns'
@@ -386,6 +395,28 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
             >
               <BarChart3 className="inline-block mr-2 size-4" />
               Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab('hero-sections')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'hero-sections'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ImageIcon className="inline-block mr-2 size-4" />
+              Banner Home
+            </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`pb-3 border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'categories'
+                  ? 'border-[#E31E24] text-[#E31E24]'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Folder className="inline-block mr-2 size-4" />
+              Categorias
             </button>
           </div>
         </div>
@@ -607,12 +638,24 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
         <QuoteBuilder />
       )}
 
+      {activeTab === 'b2b' && (
+        <B2BManager />
+      )}
+
       {activeTab === 'email-campaigns' && (
         <EmailCampaignBuilder />
       )}
 
       {activeTab === 'analytics' && (
         <AnalyticsDashboard />
+      )}
+
+      {activeTab === 'hero-sections' && (
+        <HeroSectionManager />
+      )}
+
+      {activeTab === 'categories' && (
+        <CategoryManager />
       )}
 
       {/* Product Form Modal */}

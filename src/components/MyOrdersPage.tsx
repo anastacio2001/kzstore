@@ -21,11 +21,16 @@ export function MyOrdersPage({ onBack }: MyOrdersPageProps) {
     }
   }, [user]);
 
-  // Filter orders by current user
-  const myOrders = orders.filter(order => 
-    order.customer?.email === user?.email || 
-    order.customer?.telefone === user?.phone
-  );
+  // Filter orders by current user - check multiple email field variations
+  const userEmail = user?.email || user?.user_email || user?.email_field;
+  
+  const myOrders = orders.filter(order => {
+    // Check both nested customer object and direct customerEmail field
+    const orderEmail = order.customer?.email || (order as any).customerEmail || (order as any).customer_email;
+    const orderPhone = order.customer?.telefone || (order as any).customerPhone || (order as any).customer_phone;
+    
+    return orderEmail === userEmail || orderPhone === user?.phone;
+  });
 
   const filteredOrders = filterStatus === 'all' 
     ? myOrders 

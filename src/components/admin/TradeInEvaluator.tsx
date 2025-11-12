@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Eye, DollarSign, Calendar, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
+import { supabase } from '../../utils/supabase/client';
 
 interface TradeInRequest {
   id: string;
