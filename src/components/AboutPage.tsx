@@ -59,19 +59,16 @@ export function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
       {/* Hero Section */}
-      <div className="bg-gradient-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-slide-in-left">
-              Sobre a KZSTORE
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 leading-relaxed animate-slide-in-left" style={{ animationDelay: '100ms' }}>
-              Sua loja especializada em produtos eletrônicos de alta performance em Angola. 
-              Conectando tecnologia e inovação para impulsionar negócios e residências.
-            </p>
-          </div>
+      <div className="bg-gradient-primary text-white relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 relative z-10">
+            Sobre a KZSTORE
+          </h1>
+          <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto relative z-10">
+            Sua loja especializada em tecnologia de alto desempenho em Angola
+          </p>
         </div>
       </div>
 

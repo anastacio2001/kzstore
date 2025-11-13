@@ -104,17 +104,17 @@ export function FAQPage() {
     : faqs;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
       {/* Hero Section */}
-      <div className="bg-gradient-primary text-white">
+      <div className="bg-gradient-primary text-white relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <div className="inline-flex items-center justify-center size-20 rounded-full bg-white/20 backdrop-blur-sm mb-6">
             <HelpCircle className="size-10" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 relative z-10">
             Perguntas Frequentes
           </h1>
-          <p className="text-xl text-white/90 mb-8">
+          <p className="text-xl text-white/90 mb-8 relative z-10">
             Encontre respostas para as dúvidas mais comuns
           </p>
 
