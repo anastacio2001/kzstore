@@ -40,7 +40,18 @@ export function CategoriesManager() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
+      // Tentar obter token de várias fontes
+      let token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (!token) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            token = user.access_token || user.token;
+          } catch {}
+        }
+      }
+      
       const response = await fetch('/api/categories', {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
@@ -189,7 +200,18 @@ export function CategoriesManager() {
     
     // Salvar na API para sincronizar entre usuários
     try {
-      const token = localStorage.getItem('access_token');
+      // Tentar obter token de várias fontes
+      let token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (!token) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            token = user.access_token || user.token;
+          } catch {}
+        }
+      }
+      
       const response = await fetch('/api/categories/bulk-update', {
         method: 'POST',
         headers: {
