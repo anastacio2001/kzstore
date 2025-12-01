@@ -56,10 +56,10 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
   }
 
   return (
-    <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200 relative">
+    <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200 relative">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base sm:text-lg font-bold text-gray-900">{title}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
         
         {/* Navigation Arrows - Desktop */}
         <div className="hidden md:flex items-center gap-2">
@@ -93,7 +93,7 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
       {/* Scroll Container */}
       <div
         ref={scrollContainerRef}
-        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+        className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -103,33 +103,33 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
         {products.map((product) => (
           <div
             key={product.id}
-            className="flex-shrink-0 w-[130px] sm:w-[150px] bg-white rounded-lg border border-gray-200 hover:border-red-500 hover:shadow-md transition-all duration-300 group"
+            className="flex-shrink-0 w-[180px] sm:w-[200px] bg-white rounded-lg border border-gray-200 hover:border-red-500 hover:shadow-md transition-all duration-300 group"
           >
             {/* Product Image */}
             <div className="relative overflow-hidden rounded-t-lg">
               <img
                 src={product.imagem_url}
                 alt={product.nome}
-                className="w-full h-[110px] sm:h-[120px] object-cover group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-[150px] sm:h-[160px] object-cover group-hover:scale-105 transition-transform duration-300"
               />
               
               {/* Discount Badge */}
               {product.desconto && (
-                <div className="absolute top-1 left-1 bg-red-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">
+                <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[10px] font-bold">
                   -{product.desconto}%
                 </div>
               )}
 
               {/* Stock Badge */}
               {product.estoque < 5 && product.estoque > 0 && (
-                <div className="absolute top-1 right-1 bg-yellow-500 text-white px-1.5 py-0.5 rounded text-[8px] font-bold">
+                <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                   Últimas {product.estoque}
                 </div>
               )}
 
               {/* Out of Stock Badge */}
               {product.estoque === 0 && (
-                <div className="absolute top-1 right-1 bg-gray-600 text-white px-1.5 py-0.5 rounded text-[8px] font-bold">
+                <div className="absolute top-2 right-2 bg-gray-600 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                   Esgotado
                 </div>
               )}
@@ -163,39 +163,39 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
 
             {/* Product Info */}
             <div 
-              className="p-2 cursor-pointer"
+              className="p-3 cursor-pointer"
               onClick={() => onProductClick(product)}
             >
               {/* Category */}
-              <p className="text-[9px] text-red-600 font-semibold uppercase mb-0.5">
+              <p className="text-[10px] text-red-600 font-semibold uppercase mb-1">
                 {product.categoria}
               </p>
 
               {/* Product Name */}
-              <h3 className="text-[10px] font-semibold text-gray-900 mb-1 line-clamp-2 min-h-[1.8rem] leading-tight">
+              <h3 className="text-xs font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.2rem] leading-snug">
                 {product.nome}
               </h3>
 
               {/* Price */}
-              <div className="mb-1.5">
+              <div className="mb-2">
                 {product.desconto ? (
                   <div>
-                    <p className="text-[9px] text-gray-400 line-through">
+                    <p className="text-[10px] text-gray-400 line-through">
                       {formatPrice(product.preco_aoa / (1 - product.desconto / 100))}
                     </p>
-                    <p className="text-xs font-bold text-red-600">
+                    <p className="text-sm font-bold text-red-600">
                       {formatPrice(product.preco_aoa)}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs font-bold text-red-600">
+                  <p className="text-sm font-bold text-red-600">
                     {formatPrice(product.preco_aoa)}
                   </p>
                 )}
               </div>
 
               {/* Stock Status */}
-              <div className="text-[9px]">
+              <div className="text-[10px]">
                 {product.estoque > 0 ? (
                   <span className="text-green-600 font-semibold">Em estoque</span>
                 ) : (
