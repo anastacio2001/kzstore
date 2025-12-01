@@ -476,15 +476,31 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
                       ID: p.id,
                       Nome: p.nome,
                       Categoria: p.categoria,
-                      Marca: p.marca,
-                      Preço: p.preco,
-                      Estoque: p.stock,
-                      SKU: p.sku,
-                      Status: p.is_active ? 'Ativo' : 'Inativo'
+                      Marca: p.marca || 'N/A',
+                      'Preço (AOA)': p.preco_aoa || 0,
+                      Estoque: p.estoque || 0,
+                      SKU: p.sku || 'N/A',
+                      Status: p.is_active ? 'Ativo' : 'Inativo',
+                      'Data Criação': p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : 'N/A'
                     }));
                     
                     import('xlsx').then(XLSX => {
                       const ws = XLSX.utils.json_to_sheet(exportData);
+                      
+                      // Ajustar largura das colunas
+                      const colWidths = [
+                        { wch: 10 }, // ID
+                        { wch: 40 }, // Nome
+                        { wch: 15 }, // Categoria
+                        { wch: 15 }, // Marca
+                        { wch: 12 }, // Preço
+                        { wch: 10 }, // Estoque
+                        { wch: 15 }, // SKU
+                        { wch: 10 }, // Status
+                        { wch: 15 }  // Data Criação
+                      ];
+                      ws['!cols'] = colWidths;
+                      
                       const wb = XLSX.utils.book_new();
                       XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
                       XLSX.writeFile(wb, `produtos_kzstore_${new Date().toISOString().split('T')[0]}.xlsx`);

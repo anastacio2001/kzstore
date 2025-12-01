@@ -5,20 +5,21 @@ import { Product } from '../App';
 import { AdBanner } from './AdBanner';
 import { ProductReviews } from './ProductReviews';
 import { PriceAlertButton } from './PriceAlertButton';
+import { ProductCarousel } from './ProductCarousel';
 import { formatKz } from '../utils/formatCurrency';
 
 type ProductDetailPageProps = {
   product: Product;
-  products?: Product[];
+  allProducts?: Product[];
   onAddToCart: (product: Product, quantity: number) => void;
   onBack: () => void;
-  onViewProduct?: (productId: string) => void;
+  onProductClick?: (product: Product) => void;
   userEmail?: string;
   userName?: string;
   accessToken?: string;
 };
 
-export function ProductDetailPage({ product, products = [], onAddToCart, onBack, onViewProduct, userEmail, userName, accessToken }: ProductDetailPageProps) {
+export function ProductDetailPage({ product, allProducts, onAddToCart, onBack, onProductClick, userEmail, userName, accessToken }: ProductDetailPageProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
@@ -471,41 +472,15 @@ export function ProductDetailPage({ product, products = [], onAddToCart, onBack,
           />
         </div>
 
-        {/* Produtos Relacionados / Também Foram Vistos */}
-        {products.length > 0 && onViewProduct && (
+        {/* Related Products Carousel */}
+        {allProducts && onProductClick && (
           <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6">Também foram vistos</h2>
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-4 min-w-max">
-                {products
-                  .filter(p => 
-                    p && p.id && p.id !== product.id && 
-                    (p.categoria === product.categoria || p.marca === product.marca)
-                  )
-                  .slice(0, 8)
-                  .map((relatedProduct) => (
-                    <div
-                      key={relatedProduct.id}
-                      onClick={() => onViewProduct(relatedProduct.id)}
-                      className="flex-shrink-0 w-48 bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-                    >
-                      <img
-                        src={relatedProduct.imagem}
-                        alt={relatedProduct.nome}
-                        className="w-full h-48 object-cover rounded-t-lg"
-                      />
-                      <div className="p-3">
-                        <p className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2">
-                          {relatedProduct.nome}
-                        </p>
-                        <p className="text-lg font-bold text-[#E31E24]">
-                          AOA {relatedProduct.preco ? relatedProduct.preco.toLocaleString('pt-BR') : '0'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
+            <ProductCarousel
+              title="Produtos Relacionados"
+              products={allProducts}
+              onProductClick={onProductClick}
+              onAddToCart={(p) => onAddToCart(p, 1)}
+            />
           </div>
         )}
       </div>

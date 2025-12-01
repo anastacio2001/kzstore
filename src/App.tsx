@@ -660,17 +660,18 @@ export default function App() {
           {currentPage === 'product-detail' && selectedProduct && (
             <ProductDetailPage
               product={selectedProduct}
-              products={displayProducts}
+              allProducts={displayProducts.filter(p => 
+                p.id !== selectedProduct.id && 
+                p.categoria === selectedProduct.categoria
+              ).slice(0, 8)}
               onAddToCart={addToCart}
               onBack={() => {
                 setSelectedProduct(null);
                 navigateTo('products');
               }}
-              onViewProduct={(productId) => {
-                const product = displayProducts.find(p => p.id === productId);
-                if (product) {
-                  setSelectedProduct(product);
-                }
+              onProductClick={(product) => {
+                setSelectedProduct(product);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               userEmail={user?.email}
               userName={user?.user_metadata?.name || user?.nome || user?.name || user?.email?.split('@')[0] || 'Usuário'}
