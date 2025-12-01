@@ -4068,6 +4068,22 @@ app.listen(PORT, '0.0.0.0', async () => {
     const ordersCount = await prisma.order.count();
     const productsCount = await prisma.product.count();
     console.log(`✅ Banco conectado! ${ordersCount} pedidos e ${productsCount} produtos encontrados\n`);
+    
+    // Aplicar migration: adicionar coluna icon em subcategories (se não existir)
+    try {
+      console.log('🔧 Verificando schema de subcategories...');
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE subcategories 
+        ADD COLUMN IF NOT EXISTS icon VARCHAR(200) NULL AFTER description
+      `);
+      console.log('✅ Schema de subcategories atualizado!');
+    } catch (migrationError: any) {
+      if (migrationError.message?.includes('Duplicate column') || migrationError.message?.includes('already exists')) {
+        console.log('ℹ️ Coluna icon já existe em subcategories');
+      } else {
+        console.warn('⚠️ Erro ao aplicar migration (pode ser ignorado se coluna já existe):', migrationError.message);
+      }
+    }
   } catch (error) {
     console.error('❌ Erro ao conectar com banco de dados:', error);
     console.error('⚠️  Verifique se o MySQL está rodando e as credenciais em .env estão corretas\n');
