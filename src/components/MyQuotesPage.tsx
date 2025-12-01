@@ -5,11 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { FileText, Clock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
-export default function MyQuotesPage() {
+interface MyQuotesPageProps {
+  onBack?: () => void;
+}
+
+export default function MyQuotesPage({ onBack }: MyQuotesPageProps) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const { fetchQuotes, loading } = useQuotes();
   const [quotes, setQuotes] = useState<Quote[]>([]);
 
@@ -51,8 +53,8 @@ export default function MyQuotesPage() {
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-gray-600">Faça login para ver suas cotações</p>
-            <Button onClick={() => navigate('/login')} className="mt-4">
-              Fazer Login
+            <Button onClick={() => window.location.href = '/'} className="mt-4">
+              Ir para Home
             </Button>
           </CardContent>
         </Card>
@@ -64,7 +66,7 @@ export default function MyQuotesPage() {
     <div className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/')}>
+          <Button variant="ghost" onClick={onBack || (() => window.history.back())}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
@@ -86,8 +88,8 @@ export default function MyQuotesPage() {
           <CardContent className="py-8 text-center">
             <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">Você ainda não tem cotações</p>
-            <Button onClick={() => navigate('/')}>
-              Solicitar Orçamento
+            <Button onClick={onBack || (() => window.history.back())}>
+              Voltar
             </Button>
           </CardContent>
         </Card>
