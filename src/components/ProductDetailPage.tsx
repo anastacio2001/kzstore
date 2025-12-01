@@ -472,40 +472,42 @@ export function ProductDetailPage({ product, products = [], onAddToCart, onBack,
         </div>
 
         {/* Produtos Relacionados / Também Foram Vistos */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold mb-6">Também foram vistos</h2>
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-max">
-              {products
-                .filter(p => 
-                  p.id !== product.id && 
-                  (p.categoria === product.categoria || p.marca === product.marca)
-                )
-                .slice(0, 8)
-                .map((relatedProduct) => (
-                  <div
-                    key={relatedProduct.id}
-                    onClick={() => onViewProduct(relatedProduct.id)}
-                    className="flex-shrink-0 w-48 bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-                  >
-                    <img
-                      src={relatedProduct.imagem}
-                      alt={relatedProduct.nome}
-                      className="w-full h-48 object-cover rounded-t-lg"
-                    />
-                    <div className="p-3">
-                      <p className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2">
-                        {relatedProduct.nome}
-                      </p>
-                      <p className="text-lg font-bold text-[#E31E24]">
-                        AOA {relatedProduct.preco.toLocaleString('pt-BR')}
-                      </p>
+        {products.length > 0 && onViewProduct && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold mb-6">Também foram vistos</h2>
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {products
+                  .filter(p => 
+                    p && p.id && p.id !== product.id && 
+                    (p.categoria === product.categoria || p.marca === product.marca)
+                  )
+                  .slice(0, 8)
+                  .map((relatedProduct) => (
+                    <div
+                      key={relatedProduct.id}
+                      onClick={() => onViewProduct(relatedProduct.id)}
+                      className="flex-shrink-0 w-48 bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
+                    >
+                      <img
+                        src={relatedProduct.imagem}
+                        alt={relatedProduct.nome}
+                        className="w-full h-48 object-cover rounded-t-lg"
+                      />
+                      <div className="p-3">
+                        <p className="text-sm font-semibold text-gray-800 line-clamp-2 mb-2">
+                          {relatedProduct.nome}
+                        </p>
+                        <p className="text-lg font-bold text-[#E31E24]">
+                          AOA {relatedProduct.preco ? relatedProduct.preco.toLocaleString('pt-BR') : '0'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
