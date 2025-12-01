@@ -39,6 +39,7 @@ import { GarantiaPage } from './components/GarantiaPage';
 import { MyOrdersPage } from './components/MyOrdersPage';
 import { MyAccountPage } from './components/MyAccountPage';
 import { MyLoyaltyPage } from './components/MyLoyaltyPage';
+import MyQuotesPage from './components/MyQuotesPage';
 import TradeInForm from './components/TradeInForm';
 import { QuoteForm } from './components/QuoteForm';
 import { PreOrdersPage } from './components/PreOrdersPage';
@@ -825,6 +826,8 @@ export default function App() {
               onBack={() => navigateTo('home')} 
             />
           )}
+
+          {currentPage === 'my-quotes' && <MyQuotesPage />}
 
           {currentPage === 'trade-in' && <TradeInForm />}
 

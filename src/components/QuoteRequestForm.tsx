@@ -45,6 +45,12 @@ export default function QuoteRequestForm() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      console.log('📤 Enviando cotação:', {
+        user_name: user.name || name,
+        user_email: user.email || email,
+        user_phone: phone,
+      });
+
       const response = await fetch('/api/quotes', {
         method: 'POST',
         credentials: 'include',
@@ -60,8 +66,13 @@ export default function QuoteRequestForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao enviar solicitação');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro ao criar cotação:', response.status, errorData);
+        throw new Error(errorData.error || 'Erro ao enviar solicitação');
       }
+
+      const data = await response.json();
+      console.log('✅ Cotação criada:', data.quote?.quote_number);
 
       setSuccess(true);
       setTimeout(() => {
@@ -72,7 +83,9 @@ export default function QuoteRequestForm() {
         setPhone('');
         setRequirements('');
         setBudget('');
-      }, 3000);
+        // Redirecionar para página de cotações
+        window.location.href = '/my-quotes';
+      }, 2000);
     } catch (error) {
       console.error('Error:', error);
       alert('Erro ao enviar solicitação. Tente novamente.');
