@@ -2947,6 +2947,56 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
+// POST /api/categories/bulk-update - Atualizar múltiplas categorias (ADMIN)
+app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
+  try {
+    const { categories } = req.body;
+    
+    if (!Array.isArray(categories)) {
+      return res.status(400).json({ error: 'Categories must be an array' });
+    }
+    
+    // Usar transação para garantir consistência
+    await prisma.$transaction(async (tx) => {
+      // Deletar todas as categorias e subcategorias existentes
+      await tx.subcategory.deleteMany({});
+      await tx.category.deleteMany({});
+      
+      // Criar novas categorias
+      for (const cat of categories) {
+        const category = await tx.category.create({
+          data: {
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || '📦',
+            display_order: cat.order || 0,
+          }
+        });
+        
+        // Criar subcategorias se existirem
+        if (cat.subcategories && cat.subcategories.length > 0) {
+          for (const sub of cat.subcategories) {
+            await tx.subcategory.create({
+              data: {
+                id: sub.id,
+                name: sub.name,
+                icon: sub.icon || '',
+                category_id: category.id,
+                order: sub.order || 0,
+              }
+            });
+          }
+        }
+      }
+    });
+    
+    res.json({ message: 'Categories synchronized successfully', count: categories.length });
+  } catch (error: any) {
+    console.error('Error bulk updating categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================
 // SUBCATEGORIES ROUTES
 // ============================================

@@ -37,18 +37,47 @@ export function CategoriesManager() {
     loadCategories();
   }, []);
 
-  const loadCategories = () => {
-    const saved = localStorage.getItem('productCategories');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCategories(parsed);
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
+  const loadCategories = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        // Transformar dados da API para formato do componente
+        const formattedCategories: Category[] = data.categories.map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          icon: cat.icon || '📦',
+          order: cat.display_order || 0,
+          subcategories: cat.subcategories?.map((sub: any) => ({
+            id: sub.id,
+            name: sub.name,
+            icon: sub.icon || '',
+            parentId: cat.id,
+            order: sub.display_order || 0
+          })) || []
+        }));
+        setCategories(formattedCategories);
+      } else {
+        // Fallback para localStorage se API falhar
+        const saved = localStorage.getItem('productCategories');
+        if (saved) {
+          setCategories(JSON.parse(saved));
+        } else {
+          loadDefaultCategories();
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      // Fallback para localStorage
+      const saved = localStorage.getItem('productCategories');
+      if (saved) {
+        setCategories(JSON.parse(saved));
+      } else {
         loadDefaultCategories();
       }
-    } else {
-      loadDefaultCategories();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,8 +170,29 @@ export function CategoriesManager() {
     saveCategories(defaultCategories);
   };
 
-  const saveCategories = (cats: Category[]) => {
+  const saveCategories = async (cats: Category[]) => {
+    // Salvar no localStorage como backup
     localStorage.setItem('productCategories', JSON.stringify(cats));
+    
+    // Salvar na API para sincronizar entre usuários
+    try {
+      const response = await fetch('/api/categories/bulk-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ categories: cats }),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Categorias sincronizadas com sucesso');
+      } else {
+        console.warn('⚠️ Falha ao sincronizar categorias com a API');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao sincronizar categorias:', error);
+    }
+    
     // Disparar evento para atualizar formulário de produtos
     window.dispatchEvent(new CustomEvent('categoriesUpdated', { detail: cats }));
   };
@@ -315,10 +365,19 @@ export function CategoriesManager() {
           <h2 className="text-2xl font-bold">Gestão de Categorias</h2>
           <p className="text-gray-500">Gerencie categorias e subcategorias de produtos</p>
         </div>
-        <Button onClick={() => setShowCategoryForm(true)} disabled={showCategoryForm}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Categoria
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => loadCategories()} 
+            disabled={loading}
+          >
+            {loading ? 'Atualizando...' : 'Atualizar'}
+          </Button>
+          <Button onClick={() => setShowCategoryForm(true)} disabled={showCategoryForm}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Categoria
+          </Button>
+        </div>
       </div>
 
       {/* Estatísticas */}
