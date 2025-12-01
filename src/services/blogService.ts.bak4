@@ -1,0 +1,177 @@
+/**
+ * Blog Service - Gerenciamento de posts do blog
+ */
+
+import { BlogPost } from '../types';
+
+const API_URL = '/api';  // Usar URL relativa para funcionar em todos os ambientes
+
+/**
+ * Lista todos os posts do blog com paginação e filtros
+ */
+export async function getBlogPosts(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  category?: string;
+  featured?: boolean;
+}): Promise<{ posts: BlogPost[]; total: number; pages: number }> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.append('page', params.page.toString());
+  if (params?.limit) searchParams.append('limit', params.limit.toString());
+  if (params?.status) searchParams.append('status', params.status);
+  if (params?.category) searchParams.append('category', params.category);
+  if (params?.featured !== undefined) searchParams.append('featured', params.featured.toString());
+
+  const response = await fetch(`/api/blog?${searchParams.toString()}`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao buscar posts do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Obtém um post específico pelo ID
+ */
+export async function getBlogPostById(id: string): Promise<BlogPost> {
+  const response = await fetch(`/api/blog/${id}`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao buscar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Obtém um post pelo slug (para visualização pública)
+ */
+export async function getBlogPostBySlug(slug: string): Promise<BlogPost> {
+  const response = await fetch(`/api/blog/${slug}`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro ao buscar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Cria um novo post do blog
+ */
+export async function createBlogPost(data: Partial<BlogPost>): Promise<BlogPost> {
+  const response = await fetch(`/api/blog`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao criar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Atualiza um post do blog existente
+ */
+export async function updateBlogPost(id: string, data: Partial<BlogPost>): Promise<BlogPost> {
+  const response = await fetch(`/api/blog/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao atualizar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Deleta um post do blog
+ */
+export async function deleteBlogPost(id: string): Promise<void> {
+  const response = await fetch(`/api/blog/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao deletar post do blog');
+  }
+}
+
+/**
+ * Publica um post do blog
+ */
+export async function publishBlogPost(id: string): Promise<BlogPost> {
+  const response = await fetch(`/api/blog/${id}/publish`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao publicar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Despublica um post do blog
+ */
+export async function unpublishBlogPost(id: string): Promise<BlogPost> {
+  const response = await fetch(`/api/blog/${id}/unpublish`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao despublicar post do blog');
+  }
+
+  return response.json();
+}
+
+/**
+ * Upload de imagem para o blog
+ */
+export async function uploadBlogImage(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`/api/blog/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Erro ao fazer upload da imagem');
+  }
+
+  return response.json();
+}

@@ -1,0 +1,177 @@
+import { useState, useEffect } from 'react';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Key, Eye, EyeOff, CheckCircle } from 'lucide-react';
+
+export function ResetPassword() {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Obter token da URL (tanto de search params quanto de hash)
+  const getTokenFromURL = () => {
+    // Primeiro tentar query params normais (/reset-password?token=...)
+    let params = new URLSearchParams(window.location.search);
+    let token = params.get('token');
+    
+    // Se não encontrou, tentar no hash (#reset-password?token=...)
+    if (!token && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.split('?')[1];
+      params = new URLSearchParams(hashQuery);
+      token = params.get('token');
+    }
+    
+    return token;
+  };
+  
+  const token = getTokenFromURL();
+
+  useEffect(() => {
+    if (token) {
+    }
+    
+    if (!token) {
+      setError('Token inválido');
+    }
+  }, [token]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('A senha deve ter no mínimo 8 caracteres');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: newPassword })
+      });
+
+      
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(true);
+        setTimeout(() => {
+          window.location.hash = 'login';
+        }, 3000);
+      } else {
+        setError(data.error || 'Erro ao resetar senha');
+      }
+    } catch (err) {
+      setError('Erro ao processar solicitação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <Card className="max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Senha Alterada!</h2>
+          <p className="text-gray-600 mb-4">
+            Sua senha foi alterada com sucesso.
+          </p>
+          <p className="text-sm text-gray-500">
+            Redirecionando para o login...
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <Card className="max-w-md w-full p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Key className="w-8 h-8 text-purple-600" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Criar Nova Senha</h2>
+          <p className="text-gray-600">
+            Digite sua nova senha abaixo
+          </p>
+        </div>
+
+        {error && !token && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+            Link inválido ou expirado. Solicite um novo link de recuperação.
+          </div>
+        )}
+
+        {token && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Nova Senha</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent pr-10"
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Confirmar Senha</label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Digite novamente"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? 'Alterando...' : 'Alterar Senha'}
+            </Button>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}

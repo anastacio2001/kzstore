@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+*.log
+.env
+.env.local
+.DS_Store
+*.sql
+backend/test-*.ts
+backend/create-database.ts
+backend/import-data.ts
+cypress
+coverage
+.git
+.github
+*.md
+!README.md

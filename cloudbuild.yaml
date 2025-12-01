@@ -1,0 +1,47 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/kzstore:latest', '.']
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/kzstore:latest']
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'kzstore'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/kzstore:latest'
+      - '--region'
+      - 'europe-southwest1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--update-secrets'
+      - 'DATABASE_URL=DATABASE_URL:latest,JWT_SECRET=JWT_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,TWILIO_ACCOUNT_SID=TWILIO_ACCOUNT_SID:latest,TWILIO_AUTH_TOKEN=TWILIO_AUTH_TOKEN:latest,VITE_GEMINI_API_KEY=VITE_GEMINI_API_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest'
+      - '--update-env-vars'
+      - 'NODE_ENV=production,JWT_EXPIRES_IN=7d,VITE_APP_URL=https://kzstore.ao,VITE_API_URL=https://kzstore.ao/api,CORS_ORIGIN=https://kzstore.ao,RESEND_FROM_EMAIL=noreply@kzstore.ao,RESEND_FROM_NAME=KZSTORE Angola,TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886,GOOGLE_CLIENT_ID=341392738431-cql0059qvscfe2r61uiepar5hst18pod.apps.googleusercontent.com'
+      - '--add-cloudsql-instances'
+      - 'kzstore-477422:europe-southwest1:kzstore-01'
+      - '--max-instances'
+      - '10'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '600'
+      - '--min-instances'
+      - '1'
+      - '--cpu-boost'
+
+images:
+  - 'gcr.io/$PROJECT_ID/kzstore:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

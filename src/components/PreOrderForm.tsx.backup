@@ -1,0 +1,387 @@
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { Calendar, Package, AlertCircle, CheckCircle, CreditCard, Upload, Phone } from 'lucide-react';
+
+interface PreOrderFormProps {
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    image?: string;
+    estimated_arrival?: string;
+  };
+  trigger?: React.ReactNode;
+}
+
+export default function PreOrderForm({ product, trigger }: PreOrderFormProps) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(1); // 1: info, 2: payment, 3: success
+  const [loading, setLoading] = useState(false);
+  
+  // Form data
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<'multicaixa' | 'transfer'>('multicaixa');
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [preOrderId, setPreOrderId] = useState('');
+
+  const depositAmount = Math.round(product.price * quantity * 0.3);
+  const totalAmount = product.price * quantity;
+  const remainingAmount = totalAmount - depositAmount;
+
+  const handleStep1Submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !phone) {
+      alert('Preencha todos os campos');
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setPaymentProof(e.target.files[0]);
+    }
+  };
+
+  const uploadPaymentProof = async (): Promise<string | null> => {
+    if (!paymentProof) return null;
+
+    const formData = new FormData();
+    formData.append('image', paymentProof);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.url;
+      }
+    } catch (error) {
+      console.error('Error uploading proof:', error);
+    }
+    return null;
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!paymentProof) {
+      alert('Por favor, envie o comprovativo de pagamento');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Upload comprovativo
+      const proofUrl = await uploadPaymentProof();
+
+      // Criar pré-venda
+      const response = await fetch('/api/pre-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_name: name,
+          user_email: email,
+          product_id: product.id,
+          product_name: product.name,
+          quantity,
+          price: product.price,
+          total: totalAmount,
+          estimated_delivery: product.estimated_arrival || 'A confirmar',
+          notes: `Pagamento: ${paymentMethod === 'multicaixa' ? 'Multicaixa Express' : 'Transferência Bancária'}\nTelefone: ${phone}\nComprovativo: ${proofUrl || 'N/A'}`,
+          payment_status: 'pending',
+          paid_amount: 0, // Admin confirma depois
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPreOrderId(data.id);
+        setStep(3);
+      } else {
+        const error = await response.json();
+        alert(`Erro: ${error.error || 'Erro ao criar pré-venda'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Erro ao processar pré-venda. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setStep(1);
+    setName('');
+    setEmail('');
+    setPhone('');
+    setQuantity(1);
+    setPaymentProof(null);
+    setPreOrderId('');
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button className="bg-yellow-500 hover:bg-yellow-600 text-black w-full">
+            <Package className="h-4 w-4 mr-2" />
+            Reservar (Pré-venda)
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Pré-venda - {product.name}</DialogTitle>
+          <DialogDescription>
+            Pague apenas 30% de sinal • Restante na retirada
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Step 1: Informações */}
+        {step === 1 && (
+          <form onSubmit={handleStep1Submit} className="space-y-4">
+            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="flex gap-3">
+                <Package className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-sm mb-1">Como funciona?</h4>
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    <li>• Pague 30% de sinal agora</li>
+                    <li>• Receba notificação quando chegar</li>
+                    <li>• Pague os 70% restantes na retirada</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded">
+              <div>
+                <span className="text-sm text-gray-600">Sinal (30%)</span>
+                <p className="font-bold text-lg text-green-600">{depositAmount.toLocaleString()} Kz</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Na retirada (70%)</span>
+                <p className="font-bold text-lg">{remainingAmount.toLocaleString()} Kz</p>
+              </div>
+            </div>
+
+            <div>
+              <Label>Nome Completo</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Telefone/WhatsApp</Label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+244 900 000 000"
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Quantidade</Label>
+              <Input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Total: {totalAmount.toLocaleString()} Kz
+              </p>
+            </div>
+
+            <Button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-600 text-black">
+              Continuar para Pagamento
+            </Button>
+          </form>
+        )}
+
+        {/* Step 2: Pagamento */}
+        {step === 2 && (
+          <form onSubmit={handlePaymentSubmit} className="space-y-4">
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <h4 className="font-semibold mb-2">Valor do Sinal</h4>
+              <p className="text-3xl font-bold text-green-600">{depositAmount.toLocaleString()} Kz</p>
+              <p className="text-sm text-gray-600 mt-1">30% do valor total</p>
+            </div>
+
+            <div>
+              <Label>Método de Pagamento</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('multicaixa')}
+                  className={`p-4 border-2 rounded-lg text-left ${
+                    paymentMethod === 'multicaixa' ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  <CreditCard className="h-5 w-5 mb-2" />
+                  <p className="font-medium">Multicaixa Express</p>
+                  <p className="text-xs text-gray-500">Pagamento instantâneo</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('transfer')}
+                  className={`p-4 border-2 rounded-lg text-left ${
+                    paymentMethod === 'transfer' ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  <Phone className="h-5 w-5 mb-2" />
+                  <p className="font-medium">Transferência</p>
+                  <p className="text-xs text-gray-500">Bancária ou móvel</p>
+                </button>
+              </div>
+            </div>
+
+            {paymentMethod === 'multicaixa' && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold mb-2">Dados para Pagamento</h4>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Entidade:</strong> 11604</p>
+                  <p><strong>Referência:</strong> 123 456 789</p>
+                  <p><strong>Valor:</strong> {depositAmount.toLocaleString()} Kz</p>
+                </div>
+              </div>
+            )}
+
+            {paymentMethod === 'transfer' && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold mb-2">Dados Bancários</h4>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Banco:</strong> BAI</p>
+                  <p><strong>IBAN:</strong> AO06 0000 0000 1234 5678 9012 3</p>
+                  <p><strong>Titular:</strong> KZSTORE LDA</p>
+                  <p><strong>Valor:</strong> {depositAmount.toLocaleString()} Kz</p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label>Comprovativo de Pagamento *</Label>
+              <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="proof-upload"
+                  required
+                />
+                <label htmlFor="proof-upload" className="cursor-pointer">
+                  <span className="text-sm text-blue-600 hover:underline">
+                    {paymentProof ? paymentProof.name : 'Clique para enviar comprovativo'}
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1">PNG, JPG ou PDF (máx. 5MB)</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">
+                Voltar
+              </Button>
+              <Button type="submit" disabled={loading || !paymentProof} className="flex-1 bg-green-600 hover:bg-green-700">
+                {loading ? 'Processando...' : 'Confirmar Pré-venda'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {/* Step 3: Sucesso */}
+        {step === 3 && (
+          <div className="text-center py-8">
+            <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold mb-2">Pré-venda Registrada!</h3>
+            <p className="text-gray-600 mb-4">
+              Recebemos sua reserva. Vamos analisar seu pagamento e em breve você receberá a confirmação por email.
+            </p>
+            <div className="p-4 bg-blue-50 rounded-lg text-left mb-6">
+              <p className="text-sm"><strong>Protocolo:</strong> #{preOrderId.slice(0, 8).toUpperCase()}</p>
+              <p className="text-sm"><strong>Email:</strong> {email}</p>
+              <p className="text-sm"><strong>Produto:</strong> {product.name}</p>
+              <p className="text-sm"><strong>Sinal pago:</strong> {depositAmount.toLocaleString()} Kz</p>
+            </div>
+            <Button onClick={resetForm} className="w-full">Fechar</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Quantidade</label>
+              <Input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                required
+              />
+            </div>
+
+            {/* Summary */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Valor Total:</span>
+                <span className="font-semibold">{totalAmount.toLocaleString('pt-AO')} AOA</span>
+              </div>
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Sinal (30%):</span>
+                <span className="font-semibold">{depositAmount.toLocaleString('pt-AO')} AOA</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Restante na entrega:</span>
+                <span className="font-semibold">{remainingAmount.toLocaleString('pt-AO')} AOA</span>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Processando...' : 'Confirmar Pré-venda'}
+            </Button>
+
+            <p className="text-xs text-gray-500 text-center">
+              Você receberá instruções de pagamento por email
+            </p>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

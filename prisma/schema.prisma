@@ -1,0 +1,798 @@
+// ============================================
+// KZSTORE - Prisma Schema para MySQL
+// Migrado do Supabase PostgreSQL
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1️⃣ PRODUCTS (Produtos)
+// ============================================
+model Product {
+  id                String    @id @default(uuid())
+  nome              String    @db.VarChar(255)
+  descricao         String?   @db.Text
+  categoria         String    @db.VarChar(100)
+  subcategoria      String?   @db.VarChar(100)
+  condicao          String?   @db.VarChar(50) // 'Novo', 'Usado', 'Refurbished'
+  
+  // Preços
+  preco_aoa         Decimal   @db.Decimal(12, 2)
+  preco_usd         Decimal?  @db.Decimal(12, 2)
+  custo_aoa         Decimal?  @db.Decimal(12, 2)
+  margem_lucro      Decimal?  @db.Decimal(5, 2)
+  
+  // Estoque
+  estoque           Int       @default(0)
+  estoque_minimo    Int       @default(5)
+  
+  // Imagens e Mídia
+  imagem_url        String?   @db.VarChar(500)
+  imagens           Json?     // Array de URLs
+  
+  // Detalhes do Produto
+  especificacoes    Json?     // Especificações técnicas
+  marca             String?   @db.VarChar(100)
+  modelo            String?   @db.VarChar(100)
+  sku               String?   @unique @db.VarChar(100)
+  codigo_barras     String?   @db.VarChar(100)
+  
+  // Dimensões e Peso
+  peso_kg           Decimal?  @db.Decimal(8, 2)
+  dimensoes         Json?     // {largura, altura, profundidade}
+  
+  // Status e Configurações
+  ativo             Boolean   @default(true)
+  destaque          Boolean   @default(false)
+  is_featured       Boolean   @default(false)
+  featured_order    Int?
+  is_pre_order      Boolean   @default(false)
+  pre_order_info    Json?     // {estimated_arrival, deposit_percentage, max_quantity}
+  
+  // Fornecedor
+  fornecedor        String?   @db.VarChar(200)
+  
+  // Frete Personalizado
+  shipping_type     String?   @default("paid") @db.VarChar(20) // 'free' ou 'paid'
+  shipping_cost_aoa Decimal?  @default(0) @db.Decimal(10, 2)
+  shipping_cost_usd Decimal?  @default(0) @db.Decimal(10, 2)
+  
+  // Tags e Categorias
+  tags              Json?     // Array de tags
+  category_id       String?   @db.VarChar(50)
+  subcategory_id    String?   @db.VarChar(50)
+  
+  // Estatísticas e Avaliações
+  total_vendas      Int       @default(0)
+  rating_medio      Decimal?  @db.Decimal(3, 2)
+  total_avaliacoes  Int       @default(0)
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  // Relações
+  reviews           Review[]
+  flashSales        FlashSale[]
+  priceAlerts       PriceAlert[]
+  preOrders         PreOrder[]
+  stockHistory      StockHistory[]
+  favorites         Favorite[]
+  
+  @@index([categoria])
+  @@index([marca])
+  @@index([ativo])
+  @@index([destaque])
+  @@index([estoque])
+  @@map("products")
+}
+
+// ============================================
+// 🌟 FAVORITES (Favoritos/Wishlist)
+// ============================================
+model Favorite {
+  id          String   @id @default(uuid())
+  user_id     String   @db.VarChar(100)
+  product_id  String   @db.VarChar(100)
+  created_at  DateTime @default(now())
+  
+  // Relação
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, product_id])
+  @@index([user_id])
+  @@index([product_id])
+  @@map("favorites")
+}
+
+// ============================================
+// 2️⃣ ORDERS (Pedidos)
+// ============================================
+model Order {
+  id                String    @id @default(uuid())
+  order_number      String    @unique @db.VarChar(50)
+  
+  // Informações do Cliente
+  user_id           String?   @db.VarChar(100)
+  user_name         String    @db.VarChar(200)
+  user_email        String    @db.VarChar(200)
+  
+  // Itens do Pedido (JSON array)
+  items             Json      // OrderItem[]
+  
+  // Valores
+  subtotal          Decimal   @db.Decimal(12, 2)
+  tax_amount        Decimal?  @db.Decimal(12, 2)
+  discount_amount   Decimal?  @db.Decimal(12, 2)
+  discount_type     String?   @db.VarChar(50)
+  discount_details  String?   @db.Text
+  shipping_cost     Decimal   @db.Decimal(12, 2)
+  total             Decimal   @db.Decimal(12, 2)
+  
+  // Pagamento
+  payment_method    String    @db.VarChar(100)
+  payment_status    String    @db.VarChar(50) @default("pending")
+  
+  // Endereço de Entrega (JSON)
+  shipping_address  Json
+  
+  // Status e Rastreamento
+  status            String    @db.VarChar(50) @default("pending")
+  tracking_number   String?   @db.VarChar(100)
+  notes             String?   @db.Text
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  delivered_at      DateTime?
+  cancelled_at      DateTime?
+  
+  @@index([user_email])
+  @@index([status])
+  @@index([order_number])
+  @@index([created_at])
+  @@map("orders")
+}
+
+// ============================================
+// 3️⃣ REVIEWS (Avaliações)
+// ============================================
+model Review {
+  id                      String    @id @default(uuid())
+  product_id              String    @db.VarChar(191)
+  
+  // Informações do Usuário
+  user_id                 String?   @db.VarChar(191)
+  user_name               String    @db.VarChar(200)
+  user_email              String    @db.VarChar(200)
+  
+  // Avaliação
+  rating                  Int       // 1-5
+  comment                 String?   @db.Text
+  
+  // Status
+  is_approved             Boolean   @default(false)
+  is_verified_purchase    Boolean   @default(false)
+  status                  String    @default("pending") @db.VarChar(50)
+  
+  // Timestamps
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  
+  // Relação
+  product                 Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@index([product_id])
+  @@index([user_email])
+  @@index([status])
+  @@map("reviews")
+}
+
+// ============================================
+// 4️⃣ COUPONS (Cupons de Desconto)
+// ============================================
+model Coupon {
+  id                    String    @id @default(uuid())
+  code                  String    @unique @db.VarChar(50)
+  description           String?   @db.Text
+  
+  // Tipo de Desconto
+  discount_type         String    @db.VarChar(50) // 'percentage' ou 'fixed'
+  discount_value        Decimal   @db.Decimal(12, 2)
+  max_discount          Decimal?  @db.Decimal(12, 2)
+  
+  // Condições
+  minimum_order_value   Decimal?  @db.Decimal(12, 2) @default(0)
+  usage_limit           Int?
+  used_count            Int       @default(0)
+  
+  // Status
+  is_active             Boolean   @default(true)
+  
+  // Validade
+  valid_from            DateTime  @default(now())
+  valid_until           DateTime?
+  
+  // Timestamps
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  
+  @@index([code])
+  @@index([is_active])
+  @@index([valid_until])
+  @@map("coupons")
+}
+
+// ============================================
+// 5️⃣ PRICE_ALERTS (Alertas de Preço)
+// ============================================
+model PriceAlert {
+  id                String    @id @default(uuid())
+  product_id        String    @db.VarChar(100)
+  
+  // Usuário
+  user_name         String    @db.VarChar(200)
+  user_email        String    @db.VarChar(200)
+  
+  // Alerta
+  target_price      Decimal   @db.Decimal(12, 2)
+  notified          Boolean   @default(false)
+  notified_at       DateTime?
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  
+  // Relação
+  product           Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@index([product_id])
+  @@index([user_email])
+  @@map("price_alerts")
+}
+
+// ============================================
+// 6️⃣ PRE_ORDERS (Pré-vendas)
+// ============================================
+model PreOrder {
+  id                  String    @id @default(uuid())
+  
+  // Usuário
+  user_id             String?   @db.VarChar(100)
+  user_email          String    @db.VarChar(200)
+  user_name           String    @db.VarChar(200)
+  
+  // Produto
+  product_id          String    @db.VarChar(100)
+  product_name        String    @db.VarChar(255)
+  quantity            Int       @default(1)
+  price               Decimal   @db.Decimal(12, 2)
+  total               Decimal   @db.Decimal(12, 2)
+  
+  // Detalhes da Pré-venda
+  estimated_delivery  String?   @db.VarChar(100)
+  status              String    @default("pending") @db.VarChar(50) // pending, confirmed, arrived, delivered, cancelled
+  payment_status      String    @default("pending") @db.VarChar(50) // pending, partial, paid
+  paid_amount         Decimal   @default(0) @db.Decimal(12, 2)
+  payment_proof       String?   @db.VarChar(500) // URL do comprovante
+  notes               String?   @db.Text
+  
+  // Timestamps
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  
+  // Relação
+  product             Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@index([product_id])
+  @@index([user_email])
+  @@index([status])
+  @@map("pre_orders")
+}
+
+// ============================================
+// 7️⃣ FLASH_SALES (Vendas Relâmpago)
+// ============================================
+model FlashSale {
+  id                    String    @id @default(uuid())
+  product_id            String    @db.VarChar(100)
+  
+  // Detalhes da Flash Sale
+  title                 String    @db.VarChar(255)
+  description           String?   @db.Text
+  product_name          String?   @db.VarChar(255)
+  
+  // Preços
+  original_price        Decimal?  @db.Decimal(12, 2)
+  sale_price            Decimal?  @db.Decimal(12, 2)
+  discount_percentage   Decimal   @db.Decimal(5, 2)
+  
+  // Estoque Limitado
+  stock_limit           Int
+  stock_sold            Int       @default(0)
+  
+  // Período
+  start_date            DateTime
+  end_date              DateTime
+  
+  // Status
+  is_active             Boolean   @default(true)
+  
+  // Timestamps
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  
+  // Relação
+  product               Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@index([product_id])
+  @@index([is_active])
+  @@index([start_date])
+  @@index([end_date])
+  @@map("flash_sales")
+}
+
+// ============================================
+// 7️⃣ CUSTOMER_PROFILES (Perfis de Clientes)
+// ============================================
+model CustomerProfile {
+  id                String    @id @default(uuid())
+  auth_user_id      String?   @unique @db.VarChar(100)
+
+  // Informações Pessoais
+  nome              String    @db.VarChar(200)
+  email             String    @unique @db.VarChar(200)
+  telefone          String?   @db.VarChar(50)
+  password          String?   @db.VarChar(255) // Senha hash (bcrypt)
+
+  // Endereço (JSON)
+  endereco          Json?
+
+  // Preferências
+  preferences       Json?
+
+  // Admin e Status
+  is_admin          Boolean   @default(false)
+  is_active         Boolean   @default(true)
+  role              String    @default("customer") @db.VarChar(50) // 'admin' ou 'customer'
+
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([email])
+  @@index([is_admin])
+  @@index([is_active])
+  @@map("customer_profiles")
+}
+
+// ============================================
+// 8️⃣ LOYALTY_ACCOUNTS (Contas de Fidelidade)
+// ============================================
+model LoyaltyAccount {
+  id                String    @id @default(uuid())
+  user_email        String    @unique @db.VarChar(200)
+  user_name         String    @db.VarChar(200)
+  
+  // Pontos
+  points            Int       @default(0)
+  lifetime_points   Int       @default(0)
+  
+  // Nível
+  tier              String?   @db.VarChar(50) // 'bronze', 'silver', 'gold', 'platinum'
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  // Relação
+  history           LoyaltyHistory[]
+  
+  @@index([user_email])
+  @@map("loyalty_accounts")
+}
+
+// ============================================
+// 9️⃣ LOYALTY_HISTORY (Histórico de Fidelidade)
+// ============================================
+model LoyaltyHistory {
+  id                String    @id @default(uuid())
+  user_email        String    @db.VarChar(200)
+  
+  // Tipo de Transação
+  type              String    @db.VarChar(50) // 'earn', 'redeem', 'expire'
+  points            Int
+  description       String?   @db.Text
+  
+  // Referência ao Pedido
+  order_id          String?   @db.VarChar(100)
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  
+  // Relação
+  account           LoyaltyAccount @relation(fields: [user_email], references: [user_email], onDelete: Cascade)
+  
+  @@index([user_email])
+  @@index([created_at])
+  @@map("loyalty_history")
+}
+
+// ============================================
+// 10️⃣ WHATSAPP MESSAGES (Logs de Mensagens)
+// ============================================
+model WhatsAppMessage {
+  id            String    @id @default(uuid())
+  message_sid   String?   @db.VarChar(100)
+  to            String    @db.VarChar(50)
+  from          String    @db.VarChar(50)
+  template_sid  String?   @db.VarChar(100)
+  body          String?   @db.Text
+  status        String?   @db.VarChar(50)
+  error_code    Int?
+  error_message String?   @db.Text
+  metadata      Json?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@index([to])
+  @@index([message_sid])
+  @@map("whatsapp_messages")
+}
+
+// ============================================
+// 🔟 STOCK_HISTORY (Histórico de Estoque)
+// ============================================
+model StockHistory {
+  id                String    @id @default(uuid())
+  product_id        String    @db.VarChar(100)
+  product_name      String    @db.VarChar(255)
+  
+  // Mudança de Estoque
+  old_stock         Int
+  new_stock         Int
+  change_amount     Int
+  
+  // Razão
+  reason            String?   @db.VarChar(255)
+  order_id          String?   @db.VarChar(100)
+  created_by        String?   @db.VarChar(200)
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  
+  // Relação
+  product           Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  
+  @@index([product_id])
+  @@index([created_at])
+  @@map("stock_history")
+}
+
+// ============================================
+// 1️⃣1️⃣ ANALYTICS_EVENTS (Eventos de Analytics)
+// ============================================
+model AnalyticsEvent {
+  id                String    @id @default(uuid())
+  
+  // Tipo de Evento
+  event_type        String    @db.VarChar(100)
+  event_category    String?   @db.VarChar(100)
+  
+  // Sessão
+  session_id        String    @db.VarChar(200)
+  user_email        String?   @db.VarChar(200)
+  
+  // Página
+  page_url          String?   @db.VarChar(500)
+  page_title        String?   @db.VarChar(255)
+  referrer          String?   @db.VarChar(500)
+  
+  // Produto
+  product_id        String?   @db.VarChar(100)
+  product_name      String?   @db.VarChar(255)
+  product_price     Decimal?  @db.Decimal(12, 2)
+  
+  // Pedido
+  order_id          String?   @db.VarChar(100)
+  order_value       Decimal?  @db.Decimal(12, 2)
+  
+  // Carrinho
+  cart_value        Decimal?  @db.Decimal(12, 2)
+  
+  // Busca
+  search_query      String?   @db.VarChar(255)
+  
+  // Dispositivo e Navegador
+  device_type       String?   @db.VarChar(50)
+  browser           String?   @db.VarChar(100)
+  os                String?   @db.VarChar(100)
+  user_agent        String?   @db.VarChar(500)
+  
+  // Localização
+  ip_address        String?   @db.VarChar(50)
+  country           String?   @db.VarChar(100)
+  city              String?   @db.VarChar(100)
+  
+  // Metadados Adicionais
+  metadata          Json?
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  
+  @@index([event_type])
+  @@index([session_id])
+  @@index([user_email])
+  @@index([created_at])
+  @@map("analytics_events")
+}
+
+// ============================================
+// 12️⃣ CATEGORIES (Categorias)
+// ============================================
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @db.VarChar(200)
+  slug          String        @unique @db.VarChar(200)
+  description   String?       @db.Text
+  icon          String?       @db.VarChar(200)
+  image_url     String?       @db.VarChar(500)
+  parent_id     String?       @db.VarChar(100)
+  order         Int           @default(0)
+  active        Boolean       @default(true)
+  
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+  
+  subcategories Subcategory[]
+  
+  @@index([slug])
+  @@index([active])
+  @@map("categories")
+}
+
+// ============================================
+// 13️⃣ SUBCATEGORIES (Subcategorias)
+// ============================================
+model Subcategory {
+  id            String    @id @default(uuid())
+  category_id   String    @db.VarChar(100)
+  name          String    @db.VarChar(200)
+  slug          String    @unique @db.VarChar(200)
+  description   String?   @db.Text
+  order         Int       @default(0)
+  active        Boolean   @default(true)
+  
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  
+  category      Category  @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  
+  @@index([category_id])
+  @@index([slug])
+  @@index([active])
+  @@map("subcategories")
+}
+
+// ============================================
+// 14️⃣ ADVERTISEMENTS (Anúncios/Banners)
+// ============================================
+model Advertisement {
+  id               String    @id @default(uuid())
+  
+  // Conteúdo
+  titulo           String    @db.VarChar(255)
+  descricao        String?   @db.Text
+  imagem_url       String    @db.VarChar(500)
+  link_url         String?   @db.VarChar(500)
+  
+  // Configuração
+  posicao          String    @db.VarChar(50) // home-hero-banner, home-sidebar, etc
+  tipo             String    @default("banner") @db.VarChar(50) // banner, card, sidebar, popup
+  ativo            Boolean   @default(true)
+  
+  // Período
+  data_inicio      DateTime
+  data_fim         DateTime?
+  
+  // Métricas
+  cliques          Int       @default(0)
+  visualizacoes    Int       @default(0)
+  
+  // Metadados
+  criado_por       String    @db.VarChar(200)
+  criado_em        DateTime  @default(now())
+  atualizado_em    DateTime  @updatedAt
+  
+  @@index([posicao])
+  @@index([ativo])
+  @@index([data_inicio, data_fim])
+  @@map("advertisements")
+}
+
+model Ticket {
+  id               String   @id @default(uuid())
+  ticket_number    String   @unique
+  user_id          String
+  user_name        String
+  user_email       String
+  subject          String
+  category         String   // suporte, pedido, produto, pagamento, outros
+  priority         String   @default("normal") // baixa, normal, alta, urgente
+  status           String   @default("open") // open, in_progress, resolved, closed
+  description      String   @db.Text
+  messages         Json     @default("[]") // Array de mensagens
+  attachments      Json     @default("[]") // Array de arquivos anexados
+  assigned_to      String?  // ID do admin responsável
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  resolved_at      DateTime?
+  closed_at        DateTime?
+  
+  @@index([user_id])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@map("tickets")
+}
+
+// ============================================
+// 18️⃣ USERS (Usuários - Admin e Team)
+// ============================================
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password_hash     String   // Hash bcrypt da senha
+  name              String
+  user_type         String   @default("team") // admin, team
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  last_login        DateTime?
+  
+  // Relação com TeamMember
+  team_member       TeamMember? @relation(fields: [team_member_id], references: [id])
+  team_member_id    String?     @unique
+  
+  @@index([email])
+  @@index([user_type])
+  @@index([is_active])
+  @@map("users")
+}
+
+// ============================================
+// 19️⃣ TEAM MEMBERS (Membros da Equipe)
+// ============================================
+model TeamMember {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  name              String
+  role              String   // admin, editor, viewer, moderator
+  permissions       Json     // Permissões específicas
+  is_active         Boolean  @default(true)
+  invited_by        String   // ID do admin que convidou
+  invited_at        DateTime @default(now())
+  accepted_at       DateTime?
+  last_login        DateTime?
+  avatar_url        String?
+  department        String?  // vendas, estoque, marketing, suporte
+  phone             String?
+  temp_password     String?  // Senha temporária (removida após primeiro login)
+  password_changed  Boolean  @default(false)
+  
+  // Relação com User
+  user              User?
+  
+  @@index([email])
+  @@index([role])
+  @@index([is_active])
+  @@map("team_members")
+}
+
+// ============================================
+// 20️⃣ PENDING ACTIONS (Ações Pendentes de Aprovação)
+// ============================================
+model PendingAction {
+  id                String   @id @default(uuid())
+  action_type       String   // create_product, update_product, delete_product, create_coupon, etc
+  entity_type       String   // product, coupon, flash_sale, order, etc
+  entity_id         String?  // ID da entidade afetada (null para criação)
+  action_data       Json     // Dados da ação (novo produto, alterações, etc)
+  original_data     Json?    // Dados originais antes da alteração
+  requested_by      String   // ID do membro da equipe
+  requested_by_name String
+  requested_at      DateTime @default(now())
+  status            String   @default("pending") // pending, approved, rejected
+  reviewed_by       String?  // ID do admin que revisou
+  reviewed_by_name  String?
+  reviewed_at       DateTime?
+  review_notes      String?  @db.Text
+  priority          String   @default("normal") // low, normal, high, urgent
+  
+  @@index([status])
+  @@index([requested_by])
+  @@index([action_type])
+  @@index([entity_type])
+  @@map("pending_actions")
+}
+
+// ============================================
+// 21️⃣ ACTIVITY LOG (Log de Atividades)
+// ============================================
+model ActivityLog {
+  id                String   @id @default(uuid())
+  user_id           String
+  user_name         String
+  user_role         String
+  action_type       String   // login, logout, create, update, delete, approve, reject
+  entity_type       String?  // product, order, coupon, etc
+  entity_id         String?
+  description       String   @db.Text
+  metadata          Json?    // Dados adicionais da ação
+  ip_address        String?
+  user_agent        String?  @db.Text
+  created_at        DateTime @default(now())
+  
+  @@index([user_id])
+  @@index([action_type])
+  @@index([created_at])
+  @@map("activity_logs")
+}
+
+// ============================================
+// 22️⃣ BLOG POSTS (Artigos do Blog)
+// ============================================
+model BlogPost {
+  id                String    @id @default(uuid())
+  
+  // Conteúdo
+  title             String    @db.VarChar(255)
+  slug              String    @unique @db.VarChar(255)
+  excerpt           String?   @db.Text // Resumo/descrição curta
+  content           String    @db.LongText // Conteúdo completo (suporta HTML/Markdown)
+  
+  // Imagens
+  cover_image       String?   @db.VarChar(500) // Imagem de capa
+  images            Json?     // Array de imagens adicionais
+  
+  // Categorização
+  category          String?   @db.VarChar(100) // Hardware, Armazenamento, Segurança, etc
+  tags              Json?     // Array de tags
+  
+  // Autor
+  author_id         String    @db.VarChar(100)
+  author_name       String    @db.VarChar(200)
+  author_email      String    @db.VarChar(200)
+  
+  // SEO
+  meta_title        String?   @db.VarChar(255)
+  meta_description  String?   @db.VarChar(500)
+  meta_keywords     Json?     // Array de palavras-chave
+  
+  // Status e Publicação
+  status            String    @default("draft") @db.VarChar(50) // draft, published, archived
+  is_featured       Boolean   @default(false) // Destaque na homepage
+  published_at      DateTime?
+  
+  // Estatísticas
+  views_count       Int       @default(0)
+  likes_count       Int       @default(0)
+  
+  // Timestamps
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  @@index([slug])
+  @@index([status])
+  @@index([category])
+  @@index([author_id])
+  @@index([published_at])
+  @@index([is_featured])
+  @@map("blog_posts")
+}

@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Ticket, CheckCircle } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+
+export default function CreateTicket() {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [ticketNumber, setTicketNumber] = useState('');
+  
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [category, setCategory] = useState('technical');
+  const [priority, setPriority] = useState('medium');
+  const [description, setDescription] = useState('');
+  const [orderId, setOrderId] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Require login to create ticket
+      if (!user) {
+        throw new Error('Você precisa estar logado para criar um ticket');
+      }
+      const response = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          user_name: user.name || name,
+          user_email: user.email || email,
+          subject,
+          category,
+          priority,
+          description,
+          order_id: orderId || null,
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTicketNumber(data.ticket.ticket_number);
+        setSuccess(true);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSuccess(false);
+    setTicketNumber('');
+    setName('');
+    setEmail('');
+    setSubject('');
+    setDescription('');
+    setOrderId('');
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Ticket className="h-4 w-4 mr-2" />
+          Abrir Ticket de Suporte
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Criar Ticket de Suporte</DialogTitle>
+          <DialogDescription>
+            Descreva seu problema e nossa equipe irá ajudá-lo
+          </DialogDescription>
+        </DialogHeader>
+
+        {success ? (
+          <div className="text-center py-8">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Ticket Criado!</h3>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Número do seu ticket:</p>
+              <p className="text-2xl font-bold text-blue-600">{ticketNumber}</p>
+            </div>
+            <p className="text-gray-600 text-sm mb-4">
+              Você receberá atualizações por email
+            </p>
+            <Button onClick={resetForm} className="w-full">OK</Button>
+          </div>
+        ) : (
+          <>
+            {!user && (
+              <div className="p-4 bg-yellow-50 rounded-lg mb-4">
+                <p className="text-sm text-yellow-800">Você precisa estar logado para criar um ticket. Abra o modal de login para continuar.</p>
+              </div>
+            )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" required />
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Assunto" required />
+            
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="technical">Suporte Técnico</SelectItem>
+                <SelectItem value="billing">Pagamento/Faturamento</SelectItem>
+                <SelectItem value="shipping">Envio/Entrega</SelectItem>
+                <SelectItem value="product">Dúvidas sobre Produto</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Baixa Prioridade</SelectItem>
+                <SelectItem value="medium">Média Prioridade</SelectItem>
+                <SelectItem value="high">Alta Prioridade</SelectItem>
+                <SelectItem value="urgent">Urgente</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input 
+              value={orderId} 
+              onChange={(e) => setOrderId(e.target.value)} 
+              placeholder="Número do pedido (opcional)"
+            />
+
+            <Textarea 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+              placeholder="Descreva detalhadamente o problema..."
+              rows={4}
+              required
+            />
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Criando...' : 'Criar Ticket'}
+            </Button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

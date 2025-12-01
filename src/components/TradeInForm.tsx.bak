@@ -1,0 +1,568 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Repeat, CheckCircle, Send, Smartphone, User, Clock, Package, History, Upload, X } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+
+interface TradeInRequest {
+  id: string;
+  ticket_number: string;
+  device: string;
+  condition: string;
+  images?: string[];
+  estimated_value: number;
+  status: string;
+  createdAt: string;
+}
+
+export default function TradeInForm() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [estimatedValue, setEstimatedValue] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [myRequests, setMyRequests] = useState<TradeInRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [deviceType, setDeviceType] = useState('phone');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [condition, setCondition] = useState('Bom (pequenos sinais de uso)');
+  const [imei, setImei] = useState('');
+  const [description, setDescription] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      loadMyRequests();
+    }
+  }, [user]);
+
+  const loadMyRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      
+      // Pegar token do localStorage
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch('/api/trade-in/my-requests', {
+        method: 'GET',
+        credentials: 'include',
+        headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMyRequests(data);
+      }
+    } catch (error) {
+      // Silencioso em produção
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/trade-in', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: user?.name || name,
+          email: user?.email || email,
+          phone,
+          brand,
+          model,
+          imei,
+          condition,
+          description,
+          deviceType,
+          images: images // Adicionar URLs das imagens
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Trade-in response:', data);
+        
+        // A resposta vem em data.tradeIn
+        if (data.success && data.tradeIn) {
+          setEstimatedValue(data.tradeIn.estimated_value || 0);
+          setSuccess(true);
+          // Recarregar lista de solicitações
+          await loadMyRequests();
+        } else {
+          alert('Erro: resposta inválida do servidor');
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Trade-in error:', errorData);
+        alert(errorData.error || 'Erro ao enviar solicitação');
+      }
+    } catch (error) {
+      console.error('❌ Error:', error);
+      alert('Erro ao enviar solicitação. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSuccess(false);
+    setEstimatedValue(null);
+    setName('');
+    setEmail('');
+    setPhone('');
+    setBrand('');
+    setModel('');
+    setImei('');
+    setDescription('');
+    setCondition('Bom (pequenos sinais de uso)');
+    setImages([]);
+    setShowForm(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Limitar a 5 imagens
+    if (images.length + files.length > 5) {
+      alert('Máximo de 5 imagens permitidas');
+      return;
+    }
+
+    setUploadingImages(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append('images', file);
+      });
+
+      const response = await fetch('/api/upload-multiple', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newImageUrls = data.images.map((img: any) => img.url);
+        setImages(prev => [...prev, ...newImageUrls]);
+        console.log('✅ Imagens enviadas:', newImageUrls);
+      } else {
+        alert('Erro ao enviar imagens');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao fazer upload:', error);
+      alert('Erro ao enviar imagens');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const statusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: 'Pendente', color: 'bg-yellow-500' },
+    open: { label: 'Em Análise', color: 'bg-blue-500' },
+    approved: { label: 'Aprovado', color: 'bg-green-500' },
+    rejected: { label: 'Rejeitado', color: 'bg-red-500' },
+    completed: { label: 'Concluído', color: 'bg-gray-500' },
+    closed: { label: 'Fechado', color: 'bg-gray-400' },
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+            <Repeat className="h-8 w-8 text-green-600" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Programa Trade-In</h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Troque seu dispositivo usado por crédito. Avaliação gratuita e processo rápido!
+          </p>
+        </div>
+
+        {/* Conteúdo Principal */}
+        <div className="space-y-6">
+          {/* Histórico de Solicitações */}
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <History className="h-5 w-5 text-green-600" />
+                    Minhas Solicitações
+                  </CardTitle>
+                  <CardDescription>Histórico e status das suas trocas</CardDescription>
+                </div>
+                <Button
+                  onClick={() => setShowForm(!showForm)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Repeat className="h-4 w-4 mr-2" />
+                  Nova Solicitação
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {loadingRequests ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
+                </div>
+              ) : myRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="h-20 w-20 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma solicitação ainda</h3>
+                  <p className="text-gray-600 mb-6">Comece criando sua primeira solicitação de trade-in</p>
+                  <Button 
+                    onClick={() => setShowForm(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Repeat className="h-4 w-4 mr-2" />
+                    Criar Primeira Solicitação
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {myRequests.map((request) => (
+                    <div key={request.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">{request.device}</h4>
+                          <p className="text-xs text-gray-500">#{request.ticket_number}</p>
+                        </div>
+                        <Badge className={statusConfig[request.status]?.color || 'bg-gray-500'}>
+                          {statusConfig[request.status]?.label || request.status}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Condição:</span>
+                          <span className="font-medium">{request.condition}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Valor Estimado:</span>
+                          <span className="font-semibold text-green-600">
+                            {request.estimated_value.toLocaleString('pt-AO')} Kz
+                          </span>
+                        </div>
+                        {request.images && request.images.length > 0 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-xs text-gray-500 mb-2">{request.images.length} foto(s)</p>
+                            <div className="grid grid-cols-3 gap-1">
+                              {request.images.slice(0, 3).map((url, idx) => (
+                                <img
+                                  key={idx}
+                                  src={url}
+                                  alt={`Foto ${idx + 1}`}
+                                  className="w-full aspect-square object-cover rounded"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 text-xs text-gray-500 pt-2 border-t">
+                          <Clock className="h-3 w-3" />
+                          {new Date(request.createdAt).toLocaleDateString('pt-PT', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Formulário */}
+          {showForm && !success && (
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Smartphone className="h-5 w-5 text-green-600" />
+                  Nova Solicitação Trade-In
+                </CardTitle>
+                <CardDescription>Preencha as informações do dispositivo</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Informações Pessoais */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+              <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Informações Pessoais
+              </h4>
+              
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">Seu Nome *</label>
+                <Input 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  required 
+                  placeholder="Nome completo"
+                  className="bg-white"
+                />
+                </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-gray-700">Email *</label>
+                  <Input 
+                    type="email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    required 
+                    placeholder="seu@email.com"
+                    className="bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-gray-700">Telefone *</label>
+                  <Input 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)} 
+                    placeholder="+244 900 000 000" 
+                    required 
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Informações do Dispositivo */}
+            <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+              <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                Informações do Dispositivo
+              </h4>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">Tipo de Dispositivo *</label>
+                <Select value={deviceType} onValueChange={setDeviceType}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="phone">📱 Telemóvel</SelectItem>
+                    <SelectItem value="laptop">💻 Portátil</SelectItem>
+                    <SelectItem value="tablet">📱 Tablet</SelectItem>
+                    <SelectItem value="watch">⌚ Smartwatch</SelectItem>
+                    <SelectItem value="other">🔧 Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-gray-700">Marca *</label>
+                  <Input 
+                    value={brand} 
+                    onChange={(e) => setBrand(e.target.value)} 
+                    placeholder="Ex: Apple, Samsung" 
+                    required 
+                    className="bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block text-gray-700">Modelo *</label>
+                  <Input 
+                    value={model} 
+                    onChange={(e) => setModel(e.target.value)} 
+                    placeholder="Ex: iPhone 13, S21" 
+                    required 
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">Condição do Dispositivo *</label>
+                <Select value={condition} onValueChange={setCondition}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Bom (pequenos sinais de uso)">✨ Bom - Sinais leves de uso (80% do valor)</SelectItem>
+                    <SelectItem value="Razoável">⚠️ Razoável - Arranhões visíveis (50% do valor)</SelectItem>
+                    <SelectItem value="Com defeito">🔧 Com defeito - Precisa reparos (20% do valor)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">IMEI (opcional)</label>
+                <Input 
+                  value={imei} 
+                  onChange={(e) => setImei(e.target.value)} 
+                  placeholder="15 dígitos" 
+                  maxLength={15}
+                  className="bg-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Digite *#06# no telefone para ver o IMEI
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">Descrição do Estado</label>
+                <textarea 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descreva o estado geral, incluindo defeitos ou problemas..."
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 bg-white resize-none"
+                />
+              </div>
+
+              {/* Upload de Imagens */}
+              <div>
+                <label className="text-sm font-medium mb-2 block text-gray-700">
+                  Fotos do Dispositivo (opcional)
+                </label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-green-500 transition-colors bg-white">
+                        <div className="flex flex-col items-center gap-2 text-gray-600">
+                          <Upload className="h-8 w-8" />
+                          <span className="text-sm font-medium">
+                            {uploadingImages ? 'Enviando...' : 'Clique para adicionar fotos'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Máximo 5 imagens (JPG, PNG)
+                          </span>
+                        </div>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        disabled={uploadingImages || images.length >= 5}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Preview das Imagens */}
+                  {images.length > 0 && (
+                    <div className="grid grid-cols-3 gap-3">
+                      {images.map((imageUrl, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={imageUrl}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Adicione fotos do dispositivo para uma avaliação mais precisa
+                </p>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full bg-green-600 hover:bg-green-700 h-12 text-base font-semibold">
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="h-5 w-5 mr-2" />
+                  Solicitar Avaliação
+                </>
+              )}
+            </Button>
+            {showForm && (
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={() => setShowForm(false)}
+                className="w-full mt-2"
+              >
+                Cancelar
+              </Button>
+            )}
+          </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sucesso */}
+        {success && (
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="pt-8">
+              <div className="text-center py-6">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-12 w-12 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Solicitação Enviada!</h3>
+                <p className="text-gray-600 mb-6">
+                  Nossa equipe irá avaliar seu dispositivo e entrar em contato em breve
+                </p>
+                
+                {estimatedValue && estimatedValue > 0 && (
+                  <div className="max-w-md mx-auto p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl mb-6">
+                    <p className="text-sm font-medium text-gray-700 mb-2">💰 Valor Estimado</p>
+                    <p className="text-4xl font-bold text-green-600 mb-1">
+                      {estimatedValue.toLocaleString('pt-AO')} Kz
+                    </p>
+                    <p className="text-xs text-gray-600 mt-3">
+                      *Valor final sujeito a avaliação física do dispositivo
+                    </p>
+                  </div>
+                )}
+                
+                <Button onClick={resetForm} className="bg-green-600 hover:bg-green-700 w-full max-w-md">
+                  Ver Minhas Solicitações
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        </div>
+      </div>
+    </div>
+  );
+}

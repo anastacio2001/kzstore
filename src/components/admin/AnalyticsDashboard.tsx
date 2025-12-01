@@ -1,0 +1,280 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { BarChart3, TrendingUp, Eye, ShoppingCart, CreditCard } from 'lucide-react';
+// Uses backend analytics endpoint now; server collects analytics events via /api/analytics/track
+
+interface AnalyticsSummary {
+  page_views: number;
+  product_views: number;
+  add_to_cart: number;
+  checkouts: number;
+  purchases: number;
+  conversion_rate: number;
+}
+
+interface AnalyticsDashboardProps {}
+
+export default function AnalyticsDashboard({ accessToken }: AnalyticsDashboardProps) {
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('7');
+
+  useEffect(() => {    
+    fetchAnalytics();
+  }, [period]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await fetch(`/api/analytics/summary?days=${period}`, { credentials: 'include' });
+      const data = await response.json();
+      setSummary(data.summary);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    );
+  }
+
+  if (!summary) return null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Analytics Avançado</h2>
+          <p className="text-gray-600">Métricas de performance da loja</p>
+        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7">Últimos 7 dias</SelectItem>
+            <SelectItem value="30">Últimos 30 dias</SelectItem>
+            <SelectItem value="90">Últimos 90 dias</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Main Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Visualizações
+            </CardDescription>
+            <CardTitle className="text-3xl">{summary.page_views.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Produtos Vistos
+            </CardDescription>
+            <CardTitle className="text-3xl">{summary.product_views.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Adicionados
+            </CardDescription>
+            <CardTitle className="text-3xl">{summary.add_to_cart.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Checkouts
+            </CardDescription>
+            <CardTitle className="text-3xl">{summary.checkouts.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card className="bg-green-50 border-green-200">
+          <CardHeader className="pb-3">
+            <CardDescription className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              Compras
+            </CardDescription>
+            <CardTitle className="text-3xl text-green-600">{summary.purchases.toLocaleString()}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Conversion Funnel */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Funil de Conversão</CardTitle>
+          <CardDescription>Jornada do cliente até a compra</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Page Views */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Visualizações de Página</span>
+                <span className="text-sm text-gray-600">{summary.page_views} (100%)</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="bg-blue-500 h-3 rounded-full" style={{ width: '100%' }}></div>
+              </div>
+            </div>
+
+            {/* Product Views */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Produtos Visualizados</span>
+                <span className="text-sm text-gray-600">
+                  {summary.product_views} ({((summary.product_views / summary.page_views) * 100).toFixed(1)}%)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-purple-500 h-3 rounded-full"
+                  style={{ width: `${(summary.product_views / summary.page_views) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Add to Cart */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Adicionados ao Carrinho</span>
+                <span className="text-sm text-gray-600">
+                  {summary.add_to_cart} ({((summary.add_to_cart / summary.page_views) * 100).toFixed(1)}%)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-yellow-500 h-3 rounded-full"
+                  style={{ width: `${(summary.add_to_cart / summary.page_views) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Checkouts */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Iniciaram Checkout</span>
+                <span className="text-sm text-gray-600">
+                  {summary.checkouts} ({((summary.checkouts / summary.page_views) * 100).toFixed(1)}%)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-orange-500 h-3 rounded-full"
+                  style={{ width: `${(summary.checkouts / summary.page_views) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Purchases */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Compras Concluídas</span>
+                <span className="text-sm font-semibold text-green-600">
+                  {summary.purchases} ({summary.conversion_rate.toFixed(2)}%)
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-green-500 h-3 rounded-full"
+                  style={{ width: `${summary.conversion_rate}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Conversion Rate */}
+      <Card className="bg-gradient-to-br from-green-50 to-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-green-600" />
+            Taxa de Conversão Geral
+          </CardTitle>
+          <CardDescription>Percentual de visitantes que se tornaram clientes</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center">
+            <div className="text-6xl font-bold text-green-600 mb-2">
+              {summary.conversion_rate.toFixed(2)}%
+            </div>
+            <p className="text-gray-600">
+              {summary.purchases} compras de {summary.page_views} visualizações
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Taxa Produto → Carrinho</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-600 mb-1">
+              {summary.product_views > 0
+                ? ((summary.add_to_cart / summary.product_views) * 100).toFixed(1)
+                : 0}%
+            </div>
+            <p className="text-sm text-gray-600">
+              Produtos adicionados ao carrinho após visualização
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Taxa Carrinho → Checkout</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-yellow-600 mb-1">
+              {summary.add_to_cart > 0
+                ? ((summary.checkouts / summary.add_to_cart) * 100).toFixed(1)
+                : 0}%
+            </div>
+            <p className="text-sm text-gray-600">
+              Usuários que iniciaram checkout após adicionar ao carrinho
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Taxa Checkout → Compra</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600 mb-1">
+              {summary.checkouts > 0
+                ? ((summary.purchases / summary.checkouts) * 100).toFixed(1)
+                : 0}%
+            </div>
+            <p className="text-sm text-gray-600">
+              Checkouts que resultaram em compra concluída
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,205 @@
+/**
+ * Componente de Diagnóstico do Supabase
+ * Mostra status da conexão e RLS em tempo real
+ */
+
+import { useState, useEffect } from 'react';
+// Supabase removed. This diagnostics component now checks backend endpoints instead.
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+
+interface TestResult {
+  name: string;
+  status: 'success' | 'error' | 'pending';
+  message: string;
+  error?: string;
+}
+
+export function SupabaseDiagnostics() {
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [testing, setTesting] = useState(false);
+
+  const runTests = async () => {
+    setTesting(true);
+    const testResults: TestResult[] = [];
+
+    // Teste 1: Produtos (via backend API)
+    try {
+      const resp = await fetch('/api/products');
+      if (!resp.ok) throw new Error('Failed to fetch products');
+      const d = await resp.json();
+      testResults.push({ name: 'Produtos', status: 'success', message: `✅ Acesso OK (${d.products?.length || 0} registros)` });
+    } catch (err: any) {
+      testResults.push({
+        name: 'Produtos',
+        status: 'error',
+        message: 'Erro crítico',
+        error: err.message
+      });
+    }
+
+    // Teste 2: Pedidos (via backend API)
+    try {
+      const resp = await fetch('/api/orders', { credentials: 'include' });
+      if (!resp.ok) throw new Error('Failed to fetch orders');
+      const d = await resp.json();
+      testResults.push({ name: 'Pedidos', status: 'success', message: `✅ Acesso OK (${d.orders?.length || 0} registros)` });
+    } catch (err: any) {
+      testResults.push({
+        name: 'Pedidos',
+        status: 'error',
+        message: 'Erro crítico',
+        error: err.message
+      });
+    }
+
+    // Teste 3: Categorias (via backend API)
+    try {
+      const resp = await fetch('/api/product-categories');
+      if (!resp.ok) throw new Error('Failed to fetch categories');
+      const d = await resp.json();
+      testResults.push({ name: 'Categorias', status: 'success', message: `✅ Acesso OK (${d.categories?.length || 0} registros)` });
+    } catch (err: any) {
+      testResults.push({
+        name: 'Categorias',
+        status: 'error',
+        message: 'Erro crítico',
+        error: err.message
+      });
+    }
+
+    // Teste 4: Cupons (via backend API)
+    try {
+      const resp = await fetch('/api/coupons');
+      if (!resp.ok) throw new Error('Failed to fetch coupons');
+      const d = await resp.json();
+      testResults.push({ name: 'Cupons', status: 'success', message: `✅ Acesso OK (${d.coupons?.length || 0} registros)` });
+    } catch (err: any) {
+      testResults.push({
+        name: 'Cupons',
+        status: 'error',
+        message: 'Erro crítico',
+        error: err.message
+      });
+    }
+
+    // Teste 5: Reviews (via backend API)
+    try {
+      const resp = await fetch('/api/reviews');
+      if (!resp.ok) throw new Error('Failed to fetch reviews');
+      const d = await resp.json();
+      testResults.push({ name: 'Avaliações', status: 'success', message: `✅ Acesso OK (${d.reviews?.length || 0} registros)` });
+    } catch (err: any) {
+      testResults.push({
+        name: 'Avaliações',
+        status: 'error',
+        message: 'Erro crítico',
+        error: err.message
+      });
+    }
+
+    setResults(testResults);
+    setTesting(false);
+  };
+
+  useEffect(() => {
+    runTests();
+  }, []);
+
+  const hasErrors = results.some(r => r.status === 'error');
+  const allSuccess = results.every(r => r.status === 'success');
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 max-w-md">
+      <Card className="p-4 shadow-lg border-2">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold flex items-center gap-2">
+            🔍 Diagnóstico Supabase
+          </h3>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={runTests}
+            disabled={testing}
+          >
+            {testing ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+          </Button>
+        </div>
+
+        {allSuccess && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="size-5" />
+              <span className="font-medium">Tudo funcionando!</span>
+            </div>
+          </div>
+        )}
+
+        {hasErrors && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-2 text-red-700">
+              <AlertCircle className="size-5 mt-0.5" />
+              <div>
+                <p className="font-medium mb-1">RLS está bloqueando acesso!</p>
+                <p className="text-sm">
+                  Execute: <code className="bg-red-100 px-1 rounded">QUICK_FIX_RLS.sql</code>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {results.map((result, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between p-2 bg-gray-50 rounded"
+            >
+              <span className="text-sm">{result.name}</span>
+              <div className="flex items-center gap-2">
+                {result.status === 'success' && (
+                  <>
+                    <Badge variant="default" className="bg-green-500">OK</Badge>
+                    <CheckCircle className="size-4 text-green-500" />
+                  </>
+                )}
+                {result.status === 'error' && (
+                  <>
+                    <Badge variant="destructive">Erro</Badge>
+                    <XCircle className="size-4 text-red-500" />
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {hasErrors && results.some(r => r.error?.includes('permission denied')) && (
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-xs text-gray-600 mb-2">
+              <strong>Solução:</strong>
+            </p>
+            <ol className="text-xs text-gray-600 space-y-1 list-decimal list-inside">
+              <li>Abra Supabase Dashboard</li>
+              <li>Vá em SQL Editor</li>
+              <li>Execute QUICK_FIX_RLS.sql</li>
+              <li>Recarregue esta página</li>
+            </ol>
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t">
+          <p className="text-xs text-gray-500">
+            Última verificação: {new Date().toLocaleTimeString('pt-PT')}
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+}

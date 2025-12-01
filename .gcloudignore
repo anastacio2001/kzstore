@@ -1,0 +1,42 @@
+# Ignore node_modules
+node_modules/
+
+# Ignore build directory (will be built in Docker)
+build/
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore markdown documentation
+*.md
+
+# Ignore development files
+.env
+.env.*
+!.env.example
+
+# Ignore logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore test files
+cypress/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Ignore misc
+.DS_Store
+Thumbs.db
+cookies.txt
