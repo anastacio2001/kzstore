@@ -52,7 +52,7 @@ export function CategoriesManager() {
             id: cat.id,
             name: cat.name,
             icon: cat.icon || '📦',
-            order: cat.display_order || 0,
+            order: cat.order || 0,
             subcategories: cat.subcategories?.map((sub: any) => ({
               id: sub.id,
               name: sub.name,

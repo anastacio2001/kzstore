@@ -2853,7 +2853,8 @@ app.delete('/api/favorites/:productId', authMiddleware, async (req: any, res) =>
 app.get('/api/categories', async (req, res) => {
   try {
     const categories = await prisma.category.findMany({
-      orderBy: { display_order: 'asc' },
+      where: { active: true },
+      orderBy: { order: 'asc' },
       include: {
         subcategories: {
           orderBy: { order: 'asc' }
@@ -2974,7 +2975,7 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
             id: cat.id,
             name: cat.name,
             icon: cat.icon || '📦',
-            display_order: cat.order || 0,
+            order: cat.order || 0,
           }
         });
         
@@ -3099,7 +3100,7 @@ app.post('/api/categories/initialize-defaults', requireAdmin, async (req, res) =
           id: cat.id,
           name: cat.name,
           icon: cat.icon,
-          display_order: cat.order,
+          order: cat.order,
         }
       });
 
