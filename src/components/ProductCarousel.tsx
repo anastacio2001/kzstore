@@ -177,7 +177,7 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
               </h3>
 
               {/* Price */}
-              <div className="mb-1.5">">
+              <div className="mb-1.5">
                 {product.desconto ? (
                   <div>
                     <p className="text-[9px] text-gray-400 line-through">
