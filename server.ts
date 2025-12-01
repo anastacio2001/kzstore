@@ -2970,11 +2970,11 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
       
       // Criar novas categorias
       for (const cat of categories) {
-        // Gerar slug a partir do nome
-        const categorySlug = cat.name.toLowerCase()
+        // Gerar slug a partir do nome (usar id como sufixo para garantir unicidade)
+        const categorySlug = (cat.name.toLowerCase()
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
+          .replace(/^-+|-+$/g, '') + '-' + cat.id).substring(0, 190);
         
         const category = await tx.category.create({
           data: {
@@ -2989,11 +2989,11 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
         // Criar subcategorias se existirem
         if (cat.subcategories && cat.subcategories.length > 0) {
           for (const sub of cat.subcategories) {
-            // Gerar slug a partir do nome da subcategoria
-            const subSlug = sub.name.toLowerCase()
+            // Gerar slug a partir do nome da subcategoria (usar id como sufixo)
+            const subSlug = (sub.name.toLowerCase()
               .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
               .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-+|-+$/g, '');
+              .replace(/^-+|-+$/g, '') + '-' + sub.id).substring(0, 190);
             
             await tx.subcategory.create({
               data: {
