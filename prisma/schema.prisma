@@ -566,6 +566,7 @@ model Subcategory {
   name          String    @db.VarChar(200)
   slug          String    @unique @db.VarChar(200)
   description   String?   @db.Text
+  icon          String?   @db.VarChar(200)
   order         Int       @default(0)
   active        Boolean   @default(true)
   
