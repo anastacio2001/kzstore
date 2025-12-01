@@ -468,10 +468,37 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <h2 className="text-2xl font-bold">Gestão de Produtos</h2>
-              <Button onClick={() => setShowProductForm(true)}>
-                <Package className="size-4 mr-2" />
-                Novo Produto
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const exportData = products.map(p => ({
+                      ID: p.id,
+                      Nome: p.nome,
+                      Categoria: p.categoria,
+                      Marca: p.marca,
+                      Preço: p.preco,
+                      Estoque: p.stock,
+                      SKU: p.sku,
+                      Status: p.is_active ? 'Ativo' : 'Inativo'
+                    }));
+                    
+                    import('xlsx').then(XLSX => {
+                      const ws = XLSX.utils.json_to_sheet(exportData);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+                      XLSX.writeFile(wb, `produtos_kzstore_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    });
+                  }}
+                >
+                  <Package className="size-4 mr-2" />
+                  Exportar Excel
+                </Button>
+                <Button onClick={() => setShowProductForm(true)}>
+                  <Package className="size-4 mr-2" />
+                  Novo Produto
+                </Button>
+              </div>
             </div>
 
             {/* Search Bar */}

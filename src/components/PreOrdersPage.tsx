@@ -111,15 +111,34 @@ export function PreOrdersPage({ onBack, onViewProduct }: PreOrdersPageProps) {
               </div>
             ) : products.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                {products.map((product) => (
+                {products.map((product) => {
+                  const images = product.imagens ? 
+                    (typeof product.imagens === 'string' ? JSON.parse(product.imagens) : product.imagens) 
+                    : [];
+                  const allImages = [
+                    product.imagem_url,
+                    ...(Array.isArray(images) ? images : [])
+                  ].filter(Boolean);
+                  
+                  return (
                   <Card key={product.id} className="overflow-hidden">
-                    {product.imagem_url && (
-                      <div className="aspect-square bg-gray-100">
-                        <img
-                          src={product.imagem_url}
-                          alt={product.nome}
-                          className="w-full h-full object-contain"
-                        />
+                    {allImages.length > 0 && (
+                      <div className="aspect-square bg-gray-100 relative overflow-x-auto">
+                        <div className="flex h-full">
+                          {allImages.map((img, idx) => (
+                            <img
+                              key={idx}
+                              src={img}
+                              alt={`${product.nome} - imagem ${idx + 1}`}
+                              className="flex-shrink-0 w-full h-full object-contain"
+                            />
+                          ))}
+                        </div>
+                        {allImages.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                            {allImages.length} fotos
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="p-4">
@@ -166,7 +185,8 @@ export function PreOrdersPage({ onBack, onViewProduct }: PreOrdersPageProps) {
                       />
                     </div>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <Card className="p-12 text-center">

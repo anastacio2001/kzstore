@@ -567,7 +567,7 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                   <p className="text-green-700 text-sm flex items-center gap-2">
                     <span className="text-2xl">🎁</span>
-                    <span>Este produto tem <strong>FRETE GRÁTIS</strong> para todo o país!</span>
+                    <span>Este produto tem <strong>ENTREGA GRÁTIS EM LUANDA</strong>!</span>
                   </p>
                 </div>
               )}
