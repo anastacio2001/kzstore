@@ -9,14 +9,16 @@ import { formatKz } from '../utils/formatCurrency';
 
 type ProductDetailPageProps = {
   product: Product;
+  products?: Product[];
   onAddToCart: (product: Product, quantity: number) => void;
   onBack: () => void;
+  onViewProduct?: (productId: string) => void;
   userEmail?: string;
   userName?: string;
   accessToken?: string;
 };
 
-export function ProductDetailPage({ product, onAddToCart, onBack, userEmail, userName, accessToken }: ProductDetailPageProps) {
+export function ProductDetailPage({ product, products = [], onAddToCart, onBack, onViewProduct, userEmail, userName, accessToken }: ProductDetailPageProps) {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isLiked, setIsLiked] = useState(false);

@@ -660,10 +660,17 @@ export default function App() {
           {currentPage === 'product-detail' && selectedProduct && (
             <ProductDetailPage
               product={selectedProduct}
+              products={displayProducts}
               onAddToCart={addToCart}
               onBack={() => {
                 setSelectedProduct(null);
                 navigateTo('products');
+              }}
+              onViewProduct={(productId) => {
+                const product = displayProducts.find(p => p.id === productId);
+                if (product) {
+                  setSelectedProduct(product);
+                }
               }}
               userEmail={user?.email}
               userName={user?.user_metadata?.name || user?.nome || user?.name || user?.email?.split('@')[0] || 'Usuário'}
