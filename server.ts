@@ -2997,6 +2997,132 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/categories/initialize-defaults - Inicializar categorias padrão (ADMIN)
+app.post('/api/categories/initialize-defaults', requireAdmin, async (req, res) => {
+  try {
+    const defaultCategories = [
+      {
+        id: 'ram',
+        name: 'Memória RAM',
+        icon: '💾',
+        order: 1,
+        subcategories: [
+          { id: 'ram-ddr4', name: 'DDR4', order: 1 },
+          { id: 'ram-ddr5', name: 'DDR5', order: 2 },
+          { id: 'ram-server', name: 'Servidor', order: 3 },
+        ]
+      },
+      {
+        id: 'storage',
+        name: 'Armazenamento',
+        icon: '💽',
+        order: 2,
+        subcategories: [
+          { id: 'storage-ssd', name: 'SSD', order: 1 },
+          { id: 'storage-hdd', name: 'HDD', order: 2 },
+          { id: 'storage-nvme', name: 'NVMe', order: 3 },
+        ]
+      },
+      {
+        id: 'minipc',
+        name: 'Mini PCs',
+        icon: '🖥️',
+        order: 3,
+        subcategories: [
+          { id: 'minipc-intel', name: 'Intel', order: 1 },
+          { id: 'minipc-amd', name: 'AMD', order: 2 },
+        ]
+      },
+      {
+        id: 'camera',
+        name: 'Câmeras Wi-Fi',
+        icon: '📹',
+        order: 4,
+        subcategories: [
+          { id: 'camera-indoor', name: 'Indoor', order: 1 },
+          { id: 'camera-outdoor', name: 'Outdoor', order: 2 },
+        ]
+      },
+      {
+        id: 'network',
+        name: 'Redes e Internet',
+        icon: '🌐',
+        order: 5,
+        subcategories: [
+          { id: 'network-router', name: 'Roteadores', order: 1 },
+          { id: 'network-switch', name: 'Switches', order: 2 },
+          { id: 'network-wifi', name: 'Access Points', order: 3 },
+        ]
+      },
+      {
+        id: 'software',
+        name: 'Software',
+        icon: '💿',
+        order: 6,
+        subcategories: [
+          { id: 'software-os', name: 'Sistemas Operacionais', order: 1 },
+          { id: 'software-office', name: 'Produtividade', order: 2 },
+          { id: 'software-security', name: 'Segurança', order: 3 },
+        ]
+      },
+      {
+        id: 'mobile',
+        name: 'Telemóveis',
+        icon: '📱',
+        order: 7,
+        subcategories: [
+          { id: 'mobile-smartphone', name: 'Smartphones', order: 1 },
+          { id: 'mobile-accessories', name: 'Acessórios', order: 2 },
+        ]
+      }
+    ];
+
+    // Verificar se já existem categorias
+    const existingCount = await prisma.category.count();
+    if (existingCount > 0) {
+      return res.json({ 
+        message: 'Categories already exist', 
+        count: existingCount,
+        skipped: true 
+      });
+    }
+
+    // Criar categorias padrão
+    for (const cat of defaultCategories) {
+      const category = await prisma.category.create({
+        data: {
+          id: cat.id,
+          name: cat.name,
+          icon: cat.icon,
+          display_order: cat.order,
+        }
+      });
+
+      // Criar subcategorias
+      if (cat.subcategories) {
+        for (const sub of cat.subcategories) {
+          await prisma.subcategory.create({
+            data: {
+              id: sub.id,
+              name: sub.name,
+              category_id: category.id,
+              order: sub.order,
+            }
+          });
+        }
+      }
+    }
+
+    res.json({ 
+      message: 'Default categories initialized successfully', 
+      count: defaultCategories.length 
+    });
+  } catch (error: any) {
+    console.error('Error initializing categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================
 // SUBCATEGORIES ROUTES
 // ============================================
