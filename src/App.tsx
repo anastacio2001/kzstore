@@ -65,7 +65,7 @@ import { testAPIConnection } from './utils/testAPI';
 // Re-export types for backwards compatibility
 export type { Product, CartItem } from './types';
 
-type Page = 'home' | 'products' | 'product-detail' | 'cart' | 'checkout' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'login' | 'forgot-password' | 'reset-password' | 'privacy' | 'terms' | 'return' | 'cookie' | 'not-found' | 'promocoes' | 'blog' | 'carreiras' | 'devolucao' | 'garantia' | 'my-orders' | 'my-account' | 'my-loyalty' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets';
+type Page = 'home' | 'products' | 'product-detail' | 'cart' | 'checkout' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'login' | 'forgot-password' | 'reset-password' | 'privacy' | 'terms' | 'return' | 'cookie' | 'not-found' | 'promocoes' | 'blog' | 'carreiras' | 'devolucao' | 'garantia' | 'my-orders' | 'my-quotes' | 'my-account' | 'my-loyalty' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets';
 
 type ToastMessage = {
   id: number;
@@ -133,7 +133,7 @@ export default function App() {
     // Primeiro, tentar obter da URL hash
     const hash = window.location.hash.slice(1); // Remove o #
     if (hash) {
-      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'forgot-password', 'reset-password', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets'];
+      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'forgot-password', 'reset-password', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-quotes', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets'];
       if (validPages.includes(hash as Page)) {
         return hash as Page;
       }
@@ -295,7 +295,7 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1); // Remove o #
-      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets', 'reset-password'];
+      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-quotes', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets', 'reset-password'];
 
       if (hash && validPages.includes(hash as Page)) {
         setCurrentPage(hash as Page);
@@ -831,7 +831,12 @@ export default function App() {
 
           {currentPage === 'trade-in' && <TradeInForm />}
 
-          {currentPage === 'quote-request' && <QuoteForm onBack={() => navigateTo('home')} />}
+          {currentPage === 'quote-request' && (
+            <QuoteForm 
+              onBack={() => navigateTo('home')} 
+              onSuccess={() => navigateTo('my-quotes')}
+            />
+          )}
 
           {currentPage === 'pre-orders' && (
             <PreOrdersPage 

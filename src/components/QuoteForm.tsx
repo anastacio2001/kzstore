@@ -8,9 +8,10 @@ import { useAuth } from '../hooks/useAuth';
 
 type QuoteFormProps = {
   onBack: () => void;
+  onSuccess?: () => void;
 };
 
-export function QuoteForm({ onBack }: QuoteFormProps) {
+export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -46,30 +47,47 @@ export function QuoteForm({ onBack }: QuoteFormProps) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('/api/tickets', {
+      console.log('📤 Enviando cotação:', {
+        user_name: user.name || name,
+        user_email: user.email || email,
+        user_phone: phone,
+        hasToken: !!token
+      });
+
+      const response = await fetch('/api/quotes', {
         method: 'POST',
         credentials: 'include',
         headers,
         body: JSON.stringify({
           user_name: user.name || name,
           user_email: user.email || email,
-          phone,
-          subject: 'Solicitação de Orçamento',
-          category: 'quote',
-          priority: 'normal',
-          description: `${requirements}
-Budget: ${budget || 'N/A'}`,
+          user_phone: phone,
+          company: '',
+          requirements,
+          budget: budget || null,
         })
       });
 
-      if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => {
-          onBack();
-        }, 3000);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro ao criar cotação:', response.status, errorData);
+        throw new Error(errorData.error || 'Erro ao enviar solicitação');
       }
+
+      const data = await response.json();
+      console.log('✅ Cotação criada:', data.quote?.quote_number);
+
+      setSuccess(true);
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          onBack();
+        }
+      }, 2000);
     } catch (error) {
       console.error('Error submitting quote request:', error);
+      alert('Erro ao enviar solicitação. Tente novamente.');
     } finally {
       setLoading(false);
     }

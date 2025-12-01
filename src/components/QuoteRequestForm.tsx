@@ -6,7 +6,11 @@ import { Textarea } from './ui/textarea';
 import { FileText, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-export default function QuoteRequestForm() {
+interface QuoteRequestFormProps {
+  onSuccess?: () => void;
+}
+
+export default function QuoteRequestForm({ onSuccess }: QuoteRequestFormProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,8 +93,10 @@ export default function QuoteRequestForm() {
         setPhone('');
         setRequirements('');
         setBudget('');
-        // Redirecionar para página de cotações
-        window.location.href = '/my-quotes';
+        // Notificar sucesso para redirecionar
+        if (onSuccess) {
+          onSuccess();
+        }
       }, 2000);
     } catch (error) {
       console.error('Error:', error);
