@@ -2970,10 +2970,17 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
       
       // Criar novas categorias
       for (const cat of categories) {
+        // Gerar slug a partir do nome
+        const categorySlug = cat.name.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        
         const category = await tx.category.create({
           data: {
             id: cat.id,
             name: cat.name,
+            slug: categorySlug,
             icon: cat.icon || '📦',
             order: cat.order || 0,
           }
@@ -2982,10 +2989,17 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
         // Criar subcategorias se existirem
         if (cat.subcategories && cat.subcategories.length > 0) {
           for (const sub of cat.subcategories) {
+            // Gerar slug a partir do nome da subcategoria
+            const subSlug = sub.name.toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+            
             await tx.subcategory.create({
               data: {
                 id: sub.id,
                 name: sub.name,
+                slug: subSlug,
                 icon: sub.icon || '',
                 category_id: category.id,
                 order: sub.order || 0,
