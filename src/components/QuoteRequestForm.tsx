@@ -28,27 +28,33 @@ export default function QuoteRequestForm() {
 
       // Get token from localStorage
       let token = localStorage.getItem('token');
+      console.log('🔑 Token encontrado:', token ? `${token.substring(0, 20)}...` : 'NENHUM');
+      
       if (!token) {
         const userStr = localStorage.getItem('user');
         if (userStr) {
           try {
             const userData = JSON.parse(userStr);
             token = userData.access_token || userData.token;
+            console.log('🔑 Token do user object:', token ? `${token.substring(0, 20)}...` : 'NENHUM');
           } catch (e) {
-            // ignore
+            console.error('❌ Erro ao parse user:', e);
           }
         }
       }
 
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      if (!token) {
+        throw new Error('Token de autenticação não encontrado. Faça login novamente.');
       }
+
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      headers['Authorization'] = `Bearer ${token}`;
 
       console.log('📤 Enviando cotação:', {
         user_name: user.name || name,
         user_email: user.email || email,
         user_phone: phone,
+        hasToken: !!token
       });
 
       const response = await fetch('/api/quotes', {

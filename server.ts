@@ -2376,6 +2376,8 @@ app.post('/api/quotes', authMiddleware, async (req: any, res) => {
     const userId = req.userId as string;
     const { user_name, user_email, user_phone, company, requirements, budget } = req.body;
     
+    console.log('📥 Criando cotação para:', { userId, user_name, user_email, user_phone });
+    
     // Gerar número do orçamento
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -2399,11 +2401,11 @@ app.post('/api/quotes', authMiddleware, async (req: any, res) => {
       },
     });
     
-    console.log('✅ Orçamento criado:', quoteNumber);
+    console.log('✅ Orçamento criado:', quoteNumber, 'ID:', quote.id);
     
     res.status(201).json({ quote });
   } catch (error: any) {
-    console.error('Error creating quote:', error);
+    console.error('❌ Error creating quote:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
