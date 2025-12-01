@@ -174,12 +174,12 @@ export default function QuotesManager({ accessToken }: QuotesManagerProps) {
                             <span className="font-medium">Email:</span> {quote.user_email}
                           </div>
                           <div>
-                            <span className="font-medium">Telefone:</span> {quote.phone}
+                            <span className="font-medium">Telefone:</span> {quote.user_phone}
                           </div>
                           {quote.budget && (
                             <div>
                               <span className="font-medium">Orçamento:</span>{' '}
-                              {quote.budget.toLocaleString('pt-AO')} AOA
+                              {Number(quote.budget).toLocaleString('pt-AO')} Kz
                             </div>
                           )}
                           <div>
@@ -200,19 +200,19 @@ export default function QuotesManager({ accessToken }: QuotesManagerProps) {
                             
                             {quote.proposed_items && quote.proposed_items.length > 0 && (
                               <div className="mt-2 space-y-1">
-                                {quote.proposed_items.map((item, idx) => (
+                                {quote.proposed_items.map((item: any, idx: number) => (
                                   <div key={idx} className="text-sm flex justify-between">
                                     <span>
                                       {item.quantity}x {item.name}
                                     </span>
                                     <span className="font-medium">
-                                      {item.subtotal.toLocaleString('pt-AO')} AOA
+                                      {Number(item.subtotal).toLocaleString('pt-AO')} Kz
                                     </span>
                                   </div>
                                 ))}
                                 <div className="pt-2 border-t border-blue-300 flex justify-between font-semibold">
                                   <span>Total:</span>
-                                  <span>{quote.total_amount?.toLocaleString('pt-AO')} AOA</span>
+                                  <span>{Number(quote.total_amount || 0).toLocaleString('pt-AO')} Kz</span>
                                 </div>
                               </div>
                             )}

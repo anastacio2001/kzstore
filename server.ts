@@ -185,7 +185,7 @@ const limiter = rateLimit({
 // Rate limiting mais restritivo para autenticação
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: isProduction ? 5 : 100, // 5 tentativas de login em produção, 100 em dev
+  max: isProduction ? 20 : 100, // 20 tentativas de login em produção (aumentado), 100 em dev
   message: 'Muitas tentativas de login, tente novamente em 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -2283,6 +2283,177 @@ app.post('/api/tickets/:id/attachments', upload.single('file'), async (req, res)
     blobStream.end(req.file.buffer);
   } catch (error: any) {
     console.error('Erro ao adicionar anexo:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// QUOTES (ORÇAMENTOS) ROUTES
+// ============================================
+
+// GET /api/quotes - Buscar orçamentos (Admin: todos, User: próprios)
+app.get('/api/quotes', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.userId as string;
+    
+    // Verificar se é admin
+    let isAdmin = false;
+    const adminUser = await prisma.user.findUnique({ 
+      where: { id: userId },
+      select: { user_type: true }
+    });
+    
+    if (adminUser?.user_type === 'admin') {
+      isAdmin = true;
+    } else {
+      const customer = await prisma.customerProfile.findUnique({ 
+        where: { id: userId },
+        select: { role: true }
+      });
+      if (customer?.role === 'admin') {
+        isAdmin = true;
+      }
+    }
+    
+    // Se admin: buscar todos, senão: buscar apenas do usuário
+    const quotes = await prisma.quote.findMany({
+      where: isAdmin ? {} : { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    });
+    
+    res.json({ quotes });
+  } catch (error: any) {
+    console.error('Error fetching quotes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/quotes/:id - Buscar orçamento por ID
+app.get('/api/quotes/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.userId as string;
+    const quote = await prisma.quote.findUnique({
+      where: { id: req.params.id },
+    });
+    
+    if (!quote) {
+      return res.status(404).json({ error: 'Orçamento não encontrado' });
+    }
+    
+    // Verificar permissão
+    let isAdmin = false;
+    const adminUser = await prisma.user.findUnique({ 
+      where: { id: userId },
+      select: { user_type: true }
+    });
+    
+    if (adminUser?.user_type === 'admin') {
+      isAdmin = true;
+    } else {
+      const customer = await prisma.customerProfile.findUnique({ 
+        where: { id: userId },
+        select: { role: true }
+      });
+      if (customer?.role === 'admin') {
+        isAdmin = true;
+      }
+    }
+    
+    if (!isAdmin && quote.user_id !== userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    res.json({ quote });
+  } catch (error: any) {
+    console.error('Error fetching quote:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/quotes - Criar novo orçamento
+app.post('/api/quotes', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.userId as string;
+    const { user_name, user_email, user_phone, company, requirements, budget } = req.body;
+    
+    // Gerar número do orçamento
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.floor(Math.random() * 9000) + 1000;
+    const quoteNumber = `QT${year}${month}${day}-${random}`;
+    
+    const quote = await prisma.quote.create({
+      data: {
+        quote_number: quoteNumber,
+        user_id: userId,
+        user_name,
+        user_email,
+        user_phone,
+        company: company || null,
+        requirements,
+        budget: budget ? parseFloat(budget) : null,
+        status: 'pending',
+        priority: 'normal',
+      },
+    });
+    
+    console.log('✅ Orçamento criado:', quoteNumber);
+    
+    res.status(201).json({ quote });
+  } catch (error: any) {
+    console.error('Error creating quote:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/quotes/:id - Atualizar orçamento (Admin responde)
+app.put('/api/quotes/:id', requireAdmin, async (req: any, res) => {
+  try {
+    const { status, admin_proposal, proposed_items, total_amount, admin_notes, assigned_to } = req.body;
+    
+    const updateData: any = { updated_at: new Date() };
+    
+    if (status) {
+      updateData.status = status;
+      if (status === 'sent') updateData.responded_at = new Date();
+      if (status === 'accepted') updateData.accepted_at = new Date();
+      if (status === 'rejected') updateData.rejected_at = new Date();
+    }
+    
+    if (admin_proposal !== undefined) updateData.admin_proposal = admin_proposal;
+    if (proposed_items !== undefined) updateData.proposed_items = proposed_items;
+    if (total_amount !== undefined) updateData.total_amount = parseFloat(total_amount);
+    if (admin_notes !== undefined) updateData.admin_notes = admin_notes;
+    if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
+    
+    const quote = await prisma.quote.update({
+      where: { id: req.params.id },
+      data: updateData,
+    });
+    
+    console.log('✅ Orçamento atualizado:', quote.quote_number);
+    
+    res.json({ quote });
+  } catch (error: any) {
+    console.error('Error updating quote:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/quotes/:id - Deletar orçamento
+app.delete('/api/quotes/:id', requireAdmin, async (req, res) => {
+  try {
+    await prisma.quote.delete({
+      where: { id: req.params.id },
+    });
+    
+    console.log('✅ Orçamento deletado:', req.params.id);
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting quote:', error);
     res.status(500).json({ error: error.message });
   }
 });

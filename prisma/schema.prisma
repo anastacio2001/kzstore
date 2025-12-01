@@ -643,6 +643,47 @@ model Ticket {
 }
 
 // ============================================
+// 17.5️⃣ QUOTES (Orçamentos Personalizados)
+// ============================================
+model Quote {
+  id                  String   @id @default(uuid())
+  quote_number        String   @unique
+  user_id             String?
+  user_name           String
+  user_email          String
+  user_phone          String
+  company             String?
+  
+  // Requisitos do Cliente
+  requirements        String   @db.Text // Descrição detalhada
+  budget              Decimal? @db.Decimal(12, 2) // Orçamento disponível
+  
+  // Status e Acompanhamento
+  status              String   @default("pending") // pending, in_progress, sent, accepted, rejected
+  priority            String   @default("normal") // low, normal, high
+  
+  // Proposta do Admin
+  admin_proposal      String?  @db.Text
+  proposed_items      Json?    // Array de {name, quantity, unit_price, subtotal}
+  total_amount        Decimal? @db.Decimal(12, 2)
+  admin_notes         String?  @db.Text
+  
+  // Metadados
+  assigned_to         String?  // ID do admin responsável
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  responded_at        DateTime?
+  accepted_at         DateTime?
+  rejected_at         DateTime?
+  
+  @@index([user_id])
+  @@index([user_email])
+  @@index([status])
+  @@index([created_at])
+  @@map("quotes")
+}
+
+// ============================================
 // 18️⃣ USERS (Usuários - Admin e Team)
 // ============================================
 model User {

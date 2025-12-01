@@ -142,7 +142,17 @@ export const AuthProvider = ({ children }: Props) => {
       });
 
       if (!response.ok) {
-        // No session
+        // No session ou token inválido - limpar tudo
+        console.log('🧹 Sessão inválida detectada - limpando cache');
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('kzstore_user');
+          localStorage.removeItem('kzstore_user_id');
+        } catch (e) {
+          console.warn('⚠️ Erro ao limpar cache:', e);
+        }
+        
         setUser(null);
         setIsAuthenticated(false);
         if (typeof window !== 'undefined') {
@@ -188,6 +198,18 @@ export const AuthProvider = ({ children }: Props) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
+      // 🔥 IMPORTANTE: Limpar tokens antigos/inválidos antes de tentar login
+      // Isso evita problemas de cache e tokens corrompidos
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('kzstore_user');
+        localStorage.removeItem('kzstore_user_id');
+        console.log('🧹 Limpeza de tokens antigos realizada');
+      } catch (e) {
+        console.warn('⚠️ Não foi possível limpar tokens antigos:', e);
+      }
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,6 +260,8 @@ export const AuthProvider = ({ children }: Props) => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('kzstore:authChange', { detail: userData }));
         }
+        
+        console.log('✅ Login bem-sucedido:', email);
       }
     } catch (error) {
       throw error;
@@ -300,11 +324,26 @@ export const AuthProvider = ({ children }: Props) => {
   const signOut = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      
+      // 🔥 Limpar TODOS os dados de autenticação
+      console.log('🧹 Limpando todos os dados de autenticação');
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('kzstore_user');
+        localStorage.removeItem('kzstore_user_id');
+        localStorage.removeItem('kzstore_intended_page');
+      } catch (e) {
+        console.warn('⚠️ Erro ao limpar localStorage:', e);
+      }
+      
       setUser(null);
       setIsAuthenticated(false);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('kzstore:authChange', { detail: null }));
       }
+      
+      console.log('✅ Logout completo');
     } catch (err) {
       console.error('Logout error:', err);
       throw err;

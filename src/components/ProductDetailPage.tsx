@@ -325,7 +325,7 @@ export function ProductDetailPage({ product, onAddToCart, onBack, userEmail, use
                 </>
               ) : (
                 <a
-                  href="https://wa.me/244931054015"
+                  href={`https://wa.me/244931054015?text=${encodeURIComponent(`Olá! Gostaria de encomendar o produto:\n\n*${product.name}*\n\nPor favor, me informe sobre disponibilidade e formas de pagamento.`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl"
@@ -421,7 +421,7 @@ export function ProductDetailPage({ product, onAddToCart, onBack, userEmail, use
                 Nossa equipe está pronta para ajudar você com qualquer dúvida.
               </p>
               <a
-                href="https://wa.me/244931054015"
+                href={`https://wa.me/244931054015?text=${encodeURIComponent(`Olá! Tenho dúvidas sobre o produto:\\n\\n*${product.name}*\\n\\nPoderia me ajudar?`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 bg-white text-red-600 hover:bg-gray-100 px-6 py-3 rounded-xl font-semibold transition-all"

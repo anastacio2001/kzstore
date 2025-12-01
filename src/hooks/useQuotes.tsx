@@ -1,48 +1,77 @@
 /**
- * Hook para gerenciar orçamentos usando Supabase SDK
+ * Hook para gerenciar orçamentos usando API REST
  */
 
 import { useState, useCallback } from 'react';
-import { kvGet, kvSet, kvGetByPrefix } from '../utils/supabase/kv';
 
 export type Quote = {
   id: string;
-  userId: string;
-  userEmail: string;
-  userName: string;
-  userPhone: string;
+  quote_number: string;
+  user_id?: string;
+  user_name: string;
+  user_email: string;
+  user_phone: string;
   company?: string;
-  productType: string;
-  specifications: string;
-  quantity: number;
+  requirements: string;
   budget?: number;
-  urgency: 'low' | 'medium' | 'high';
-  status: 'pending' | 'reviewing' | 'quoted' | 'accepted' | 'rejected';
-  proposedPrice?: number;
-  proposedDelivery?: string;
-  proposalNotes?: string;
-  createdAt: string;
-  updatedAt?: string;
+  status: 'pending' | 'in_progress' | 'sent' | 'accepted' | 'rejected';
+  priority: string;
+  admin_proposal?: string;
+  proposed_items?: Array<{ name: string; quantity: number; unit_price: number; subtotal: number }>;
+  total_amount?: number;
+  admin_notes?: string;
+  assigned_to?: string;
+  created_at: string;
+  updated_at?: string;
+  responded_at?: string;
+  accepted_at?: string;
+  rejected_at?: string;
 };
-
-const QUOTES_PREFIX = 'quote:';
-const QUOTES_LIST_KEY = 'quotes:list';
 
 export function useQuotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getAuthHeaders = (): HeadersInit => {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    
+    let token = localStorage.getItem('token');
+    if (!token) {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          token = userData.access_token || userData.token;
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
+  };
+
   const fetchQuotes = useCallback(async (): Promise<Quote[]> => {
     setLoading(true);
     setError(null);
     try {
-      const quotesData = await kvGetByPrefix<Quote>(QUOTES_PREFIX);
-      const quotesArray = quotesData
-        .map(item => item.value)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setQuotes(quotesArray);
-      return quotesArray;
+      const response = await fetch('/api/quotes', {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao buscar orçamentos');
+      }
+      
+      const data = await response.json();
+      setQuotes(data.quotes || []);
+      return data.quotes || [];
     } catch (err) {
       console.error('[useQuotes] Error fetching quotes:', err);
       setError(String(err));
@@ -52,26 +81,31 @@ export function useQuotes() {
     }
   }, []);
 
-  const createQuote = useCallback(async (quoteData: Omit<Quote, 'id' | 'createdAt' | 'status'>): Promise<Quote | null> => {
+  const createQuote = useCallback(async (quoteData: {
+    user_name: string;
+    user_email: string;
+    user_phone: string;
+    company?: string;
+    requirements: string;
+    budget?: number;
+  }): Promise<Quote | null> => {
     setLoading(true);
     setError(null);
     try {
-      const id = `quote_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newQuote: Quote = {
-        ...quoteData,
-        id,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
+      const response = await fetch('/api/quotes', {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(quoteData),
+      });
 
-      await kvSet(`${QUOTES_PREFIX}${id}`, newQuote);
+      if (!response.ok) {
+        throw new Error('Erro ao criar orçamento');
+      }
 
-      const quoteIds = await kvGet<string[]>(QUOTES_LIST_KEY) || [];
-      quoteIds.push(id);
-      await kvSet(QUOTES_LIST_KEY, quoteIds);
-
+      const data = await response.json();
       await fetchQuotes();
-      return newQuote;
+      return data.quote;
     } catch (err) {
       console.error('[useQuotes] Error creating quote:', err);
       setError(String(err));
@@ -83,25 +117,32 @@ export function useQuotes() {
 
   const respondToQuote = useCallback(async (
     id: string,
-    proposedPrice: number,
-    proposedDelivery: string,
-    proposalNotes?: string
+    responseData: {
+      proposal?: string;
+      proposedItems?: Array<{ name: string; quantity: number; unit_price: number }>;
+      totalAmount?: number;
+      adminNotes?: string;
+    }
   ): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
-      const quote = await kvGet<Quote>(`${QUOTES_PREFIX}${id}`);
-      if (!quote) throw new Error('Quote not found');
+      const response = await fetch(`/api/quotes/${id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: 'sent',
+          admin_proposal: responseData.proposal,
+          proposed_items: responseData.proposedItems,
+          total_amount: responseData.totalAmount,
+          admin_notes: responseData.adminNotes,
+        }),
+      });
 
-      const updated: Quote = {
-        ...quote,
-        status: 'quoted',
-        proposedPrice,
-        proposedDelivery,
-        proposalNotes,
-        updatedAt: new Date().toISOString()
-      };
-      await kvSet(`${QUOTES_PREFIX}${id}`, updated);
+      if (!response.ok) {
+        throw new Error('Erro ao responder orçamento');
+      }
 
       await fetchQuotes();
       return true;
@@ -118,15 +159,16 @@ export function useQuotes() {
     setLoading(true);
     setError(null);
     try {
-      const quote = await kvGet<Quote>(`${QUOTES_PREFIX}${id}`);
-      if (!quote) throw new Error('Quote not found');
+      const response = await fetch(`/api/quotes/${id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status }),
+      });
 
-      const updated: Quote = {
-        ...quote,
-        status,
-        updatedAt: new Date().toISOString()
-      };
-      await kvSet(`${QUOTES_PREFIX}${id}`, updated);
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar status');
+      }
 
       await fetchQuotes();
       return true;
@@ -142,7 +184,7 @@ export function useQuotes() {
   const getQuotesByUser = useCallback(async (userId: string): Promise<Quote[]> => {
     try {
       const allQuotes = await fetchQuotes();
-      return allQuotes.filter(q => q.userId === userId);
+      return allQuotes.filter(q => q.user_id === userId);
     } catch (err) {
       console.error('[useQuotes] Error getting user quotes:', err);
       return [];

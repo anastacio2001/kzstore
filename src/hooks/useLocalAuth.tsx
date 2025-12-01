@@ -68,7 +68,7 @@ export function useLocalAuth() {
         const session = JSON.parse(savedSession);
         return session;
       } catch (error) {
-        console.error('❌ [useLocalAuth] Error parsing session:', error);
+        // Session parse error
         localStorage.removeItem(SESSION_KEY);
       }
     }

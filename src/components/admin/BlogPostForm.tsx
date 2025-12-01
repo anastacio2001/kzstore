@@ -117,13 +117,7 @@ export function BlogPostForm({ post, onBack, onSave }: BlogPostFormProps) {
       };
 
       if (post?.id) {
-        console.log('🔍 [BlogPostForm] Enviando dados para atualização:', {
-          id: post.id,
-          title: dataToSave.title,
-          contentLength: dataToSave.content?.length || 0,
-          status: dataToSave.status,
-          allFields: Object.keys(dataToSave)
-        });
+        // Updating blog post
         await updateBlogPost(post.id, dataToSave);
         toast.success('Post atualizado com sucesso!');
       } else {

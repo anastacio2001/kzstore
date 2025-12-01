@@ -126,7 +126,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', onLoginSucce
     try {
       if (mode === 'login') {
         await signIn(formData.email, formData.password);
-        console.log('✅ Login successful');
+        // Login successful
         showSuccessMessage('Login realizado com sucesso!');
         
         // Limpar formulário
@@ -167,17 +167,17 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login', onLoginSucce
           telefone: formData.telefone
         });
         
-        console.log('✅ Account created successfully');
+        // Account created successfully
         
         // 🔥 IMPORTANTE: Aguardar um pouco antes do auto-login
         // para garantir que o Supabase atualizou o usuário
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Fazer login automático após criar conta
-        console.log('🔵 Attempting auto-login...');
+        // Attempting auto-login
         await signIn(formData.email, formData.password);
         
-        console.log('✅ Auto-login successful');
+        // Auto-login successful
         showSuccessMessage('Conta criada com sucesso! Bem-vindo à KZSTORE!');
         
         // Limpar formulário

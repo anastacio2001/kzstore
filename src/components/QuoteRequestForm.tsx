@@ -45,20 +45,24 @@ export default function QuoteRequestForm() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      await fetch('/api/tickets', {
+      const response = await fetch('/api/quotes', {
         method: 'POST',
         credentials: 'include',
         headers,
         body: JSON.stringify({
           user_name: user.name || name,
           user_email: user.email || email,
-          subject: 'Solicitação de orçamento',
-          category: 'quote',
-          priority: 'normal',
-          description: `${requirements}
-Budget: ${budget || 'N/A'}`,
+          user_phone: phone,
+          company: '',
+          requirements,
+          budget: budget || null,
         })
       });
+
+      if (!response.ok) {
+        throw new Error('Erro ao enviar solicitação');
+      }
+
       setSuccess(true);
       setTimeout(() => {
         setOpen(false);
@@ -71,6 +75,7 @@ Budget: ${budget || 'N/A'}`,
       }, 3000);
     } catch (error) {
       console.error('Error:', error);
+      alert('Erro ao enviar solicitação. Tente novamente.');
     } finally {
       setLoading(false);
     }

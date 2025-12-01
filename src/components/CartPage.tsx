@@ -278,6 +278,17 @@ export function CartPage({ cart, onUpdateQuantity, onRemoveItem, onCheckout, onC
                   <ArrowRight className="ml-2 size-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
 
+                {/* Guest checkout info */}
+                <div className="bg-green-50 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 border border-green-200">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <Shield className="size-4 sm:size-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs sm:text-sm text-green-700">
+                        💡 <strong>Compra sem cadastro:</strong> Você pode finalizar seu pedido sem criar uma conta. Basta preencher seus dados na próxima etapa.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 {/* Info Message */}
                 <p className="text-xs text-center text-gray-500 mb-4">
                   Você poderá aplicar cupons na próxima etapa

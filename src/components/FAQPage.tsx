@@ -205,7 +205,7 @@ export function FAQPage() {
             Nossa equipe está pronta para ajudar você com qualquer dúvida.
           </p>
           <a
-            href="https://wa.me/244931054015"
+            href={`https://wa.me/244931054015?text=${encodeURIComponent('Olá! Tenho uma dúvida que não encontrei no FAQ. Poderia me ajudar?')}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg sm:rounded-xl font-semibold transition-all text-sm sm:text-base"

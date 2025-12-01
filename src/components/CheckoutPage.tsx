@@ -73,6 +73,9 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
     }
   }, [user]);
 
+  // Verificar se é compra como convidado
+  const isGuestCheckout = !user;
+
   // Safe calculation of cart total if not provided
   const safeCartTotal = cartTotal || cart.reduce((total, item) => 
     total + ((item.product?.preco_aoa || 0) * (item.quantity || 0)), 0
@@ -399,6 +402,21 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
             {step === 'info' && (
               <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-8 border-2 border-gray-100 animate-slide-in-left">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Informações de Entrega</h2>
+                
+                {/* Guest checkout notice */}
+                {isGuestCheckout && (
+                  <div className="bg-green-50 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-green-200">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <Shield className="size-4 sm:size-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-green-900 mb-1 text-sm sm:text-base">✨ Compra Rápida - Sem Cadastro</p>
+                        <p className="text-xs sm:text-sm text-green-700">
+                          Complete seu pedido sem criar conta. Usaremos seus dados apenas para esta compra e você poderá acompanhar seu pedido por email.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* User info notice */}
                 {user && (

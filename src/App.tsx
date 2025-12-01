@@ -675,7 +675,7 @@ export default function App() {
               cart={cart}
               onUpdateQuantity={updateCartQuantity}
               onRemoveItem={removeFromCart}
-              onCheckout={() => navigateWithAuth('checkout', true)}
+              onCheckout={() => navigateTo('checkout')}
               onContinueShopping={() => navigateTo('products')}
               onViewProduct={(productId) => {
                 console.log('🔍 CartPage: Looking for product ID:', productId);

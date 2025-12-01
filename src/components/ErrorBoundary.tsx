@@ -103,7 +103,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 Se o problema persistir, entre em contato conosco pelo WhatsApp
               </p>
               <a
-                href="https://wa.me/244931054015"
+                href={`https://wa.me/244931054015?text=${encodeURIComponent('Olá! Estou tendo problemas no site da KZSTORE. Poderia me ajudar?')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all"

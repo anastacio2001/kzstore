@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '../hooks/useAuth';
 
-type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets';
+type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets' | 'blog';
 
 type HeaderProps = {
   cartCount: number;
@@ -24,6 +24,7 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
   const navItems = [
     { label: 'Início', page: 'home' as const },
     { label: 'Produtos', page: 'products' as const },
+    { label: 'Blog', page: 'blog' as const },
     { label: 'Pré-vendas', page: 'pre-orders' as const },
     { label: 'Sobre', page: 'about' as const },
     { label: 'Contato', page: 'contact' as const },

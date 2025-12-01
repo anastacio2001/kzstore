@@ -1,0 +1,117 @@
+{
+  "timestamp": "2025-12-01T12:06:28.871Z",
+  "description": "Backup manual antes de restaurar 30/11",
+  "data": {
+    "customers": [
+      {
+        "id": "a4fff303-64d1-4ced-8d28-da5f894519fe",
+        "auth_user_id": null,
+        "nome": "Inácio Pedro",
+        "email": "inaciofp779@gmail.com",
+        "telefone": "925019060",
+        "password": "$2b$10$3k5XX3F2qZabbwZoriqXz.alXIL3P8SMG60kQGEJtTBoeTL/YO2jO",
+        "endereco": null,
+        "preferences": null,
+        "is_admin": false,
+        "is_active": true,
+        "role": "customer",
+        "created_at": "2025-12-01T10:37:47.901Z",
+        "updated_at": "2025-12-01T10:37:47.901Z"
+      },
+      {
+        "id": "dd96da93-82e0-4a8c-bcc6-d7cbf46567d0",
+        "auth_user_id": null,
+        "nome": "Administrator",
+        "email": "admin@kzstore.com",
+        "telefone": "244931054015",
+        "password": "$2b$10$jXpR5PpsxQsWZO2xbSnMLuwnLvULC9fNUpqVaWsF28K/S0fI8JGXa",
+        "endereco": null,
+        "preferences": null,
+        "is_admin": true,
+        "is_active": true,
+        "role": "admin",
+        "created_at": "2025-12-01T11:18:29.838Z",
+        "updated_at": "2025-12-01T11:18:29.838Z"
+      }
+    ],
+    "users": [],
+    "quotes": [],
+    "tables": [
+      {
+        "Tables_in_kzstore_prod": "_prisma_migrations"
+      },
+      {
+        "Tables_in_kzstore_prod": "activity_logs"
+      },
+      {
+        "Tables_in_kzstore_prod": "advertisements"
+      },
+      {
+        "Tables_in_kzstore_prod": "analytics_events"
+      },
+      {
+        "Tables_in_kzstore_prod": "blog_posts"
+      },
+      {
+        "Tables_in_kzstore_prod": "categories"
+      },
+      {
+        "Tables_in_kzstore_prod": "coupons"
+      },
+      {
+        "Tables_in_kzstore_prod": "customer_profiles"
+      },
+      {
+        "Tables_in_kzstore_prod": "favorites"
+      },
+      {
+        "Tables_in_kzstore_prod": "flash_sales"
+      },
+      {
+        "Tables_in_kzstore_prod": "loyalty_accounts"
+      },
+      {
+        "Tables_in_kzstore_prod": "loyalty_history"
+      },
+      {
+        "Tables_in_kzstore_prod": "orders"
+      },
+      {
+        "Tables_in_kzstore_prod": "pending_actions"
+      },
+      {
+        "Tables_in_kzstore_prod": "pre_orders"
+      },
+      {
+        "Tables_in_kzstore_prod": "price_alerts"
+      },
+      {
+        "Tables_in_kzstore_prod": "products"
+      },
+      {
+        "Tables_in_kzstore_prod": "quotes"
+      },
+      {
+        "Tables_in_kzstore_prod": "reviews"
+      },
+      {
+        "Tables_in_kzstore_prod": "stock_history"
+      },
+      {
+        "Tables_in_kzstore_prod": "subcategories"
+      },
+      {
+        "Tables_in_kzstore_prod": "team_members"
+      },
+      {
+        "Tables_in_kzstore_prod": "tickets"
+      },
+      {
+        "Tables_in_kzstore_prod": "users"
+      },
+      {
+        "Tables_in_kzstore_prod": "whatsapp_messages"
+      }
+    ]
+  }
+}

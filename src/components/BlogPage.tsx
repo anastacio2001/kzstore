@@ -61,30 +61,86 @@ export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
     }
   };
 
-  // Process YouTube links in content
-  const processYouTubeLinks = (content: string) => {
-    if (!content) return '';
+  // Componente para renderizar YouTube embed
+  const YouTubeEmbed = ({ videoId }: { videoId: string }) => (
+    <div className="relative w-full overflow-hidden rounded-lg my-8 bg-black" style={{ paddingBottom: '56.25%' }}>
+      <iframe 
+        src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&showinfo=0`}
+        className="absolute top-0 left-0 w-full h-full"
+        style={{ border: 0 }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+        allowFullScreen
+        referrerPolicy="no-referrer-when-downgrade"
+        title={`YouTube video ${videoId}`}
+      />
+    </div>
+  );
+
+  // Process content to render YouTube videos and text separately
+  const renderContent = (content: string) => {
+    if (!content) return null;
     
-    // First, decode any HTML entities
+    // Decodificar HTML entities primeiro
     const textarea = document.createElement('textarea');
     textarea.innerHTML = content;
-    let decodedContent = textarea.value;
+    const decodedContent = textarea.value;
     
-    // Regex para detectar URLs do YouTube
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
+    // Regex mais abrangente para detectar URLs do YouTube em vários formatos
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&][^\s<]*)?/gi;
     
-    return decodedContent.replace(youtubeRegex, (match, videoId) => {
-      return `<div class="relative w-full overflow-hidden rounded-lg" style="padding-bottom: 56.25%; margin: 2rem 0; height: 0;">
-        <iframe 
-          src="https://www.youtube.com/embed/${videoId}" 
-          frameborder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-          allowfullscreen
-          class="absolute top-0 left-0 w-full h-full"
-          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;"
-        ></iframe>
-      </div>`;
-    });
+    const parts: JSX.Element[] = [];
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+    
+    // Find all YouTube URLs
+    while ((match = youtubeRegex.exec(decodedContent)) !== null) {
+      // Add text before the URL
+      if (match.index > lastIndex) {
+        const textBefore = decodedContent.substring(lastIndex, match.index).trim();
+        if (textBefore) {
+          parts.push(
+            <div 
+              key={`text-${key++}`}
+              className="prose prose-lg max-w-none"
+              dangerouslySetInnerHTML={{ __html: textBefore }}
+            />
+          );
+        }
+      }
+      
+      // Add YouTube embed
+      const videoId = match[1];
+      parts.push(<YouTubeEmbed key={`video-${key++}`} videoId={videoId} />);
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text after last URL
+    if (lastIndex < decodedContent.length) {
+      const textAfter = decodedContent.substring(lastIndex).trim();
+      if (textAfter) {
+        parts.push(
+          <div 
+            key={`text-${key++}`}
+            className="prose prose-lg max-w-none"
+            dangerouslySetInnerHTML={{ __html: textAfter }}
+          />
+        );
+      }
+    }
+    
+    // If no YouTube links found, render as normal HTML
+    if (parts.length === 0) {
+      return (
+        <div 
+          className="prose prose-lg max-w-none"
+          dangerouslySetInnerHTML={{ __html: decodedContent }}
+        />
+      );
+    }
+    
+    return <>{parts}</>;
   };
 
   const loadFlashSales = async () => {
@@ -161,10 +217,7 @@ export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
                   <span className="font-medium">{selectedPost.author_name || 'Equipe KZSTORE'}</span>
                 </div>
 
-                <div 
-                  className="prose prose-lg max-w-none"
-                  dangerouslySetInnerHTML={{ __html: processYouTubeLinks(selectedPost.content) }}
-                />
+                {renderContent(selectedPost.content)}
 
                 {selectedPost.tags && selectedPost.tags.length > 0 && (
                   <div className="mt-12 pt-8 border-t">
