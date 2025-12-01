@@ -153,7 +153,7 @@ export function useQuotes() {
     } finally {
       setLoading(false);
     }
-  }, [fetchQuotes]);
+  }, [getAuthHeaders]);
 
   const updateQuoteStatus = useCallback(async (id: string, status: Quote['status']): Promise<boolean> => {
     setLoading(true);

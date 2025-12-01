@@ -47,13 +47,6 @@ export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      console.log('📤 Enviando cotação:', {
-        user_name: user.name || name,
-        user_email: user.email || email,
-        user_phone: phone,
-        hasToken: !!token
-      });
-
       const response = await fetch('/api/quotes', {
         method: 'POST',
         credentials: 'include',
@@ -70,12 +63,10 @@ export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erro ao criar cotação:', response.status, errorData);
         throw new Error(errorData.error || 'Erro ao enviar solicitação');
       }
 
       const data = await response.json();
-      console.log('✅ Cotação criada:', data.quote?.quote_number);
 
       setSuccess(true);
       setTimeout(() => {

@@ -32,7 +32,6 @@ export default function QuoteRequestForm({ onSuccess }: QuoteRequestFormProps) {
 
       // Get token from localStorage
       let token = localStorage.getItem('token');
-      console.log('🔑 Token encontrado:', token ? `${token.substring(0, 20)}...` : 'NENHUM');
       
       if (!token) {
         const userStr = localStorage.getItem('user');
@@ -40,7 +39,6 @@ export default function QuoteRequestForm({ onSuccess }: QuoteRequestFormProps) {
           try {
             const userData = JSON.parse(userStr);
             token = userData.access_token || userData.token;
-            console.log('🔑 Token do user object:', token ? `${token.substring(0, 20)}...` : 'NENHUM');
           } catch (e) {
             console.error('❌ Erro ao parse user:', e);
           }
@@ -53,13 +51,6 @@ export default function QuoteRequestForm({ onSuccess }: QuoteRequestFormProps) {
 
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
       headers['Authorization'] = `Bearer ${token}`;
-
-      console.log('📤 Enviando cotação:', {
-        user_name: user.name || name,
-        user_email: user.email || email,
-        user_phone: phone,
-        hasToken: !!token
-      });
 
       const response = await fetch('/api/quotes', {
         method: 'POST',
@@ -77,12 +68,10 @@ export default function QuoteRequestForm({ onSuccess }: QuoteRequestFormProps) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erro ao criar cotação:', response.status, errorData);
         throw new Error(errorData.error || 'Erro ao enviar solicitação');
       }
 
       const data = await response.json();
-      console.log('✅ Cotação criada:', data.quote?.quote_number);
 
       setSuccess(true);
       setTimeout(() => {
