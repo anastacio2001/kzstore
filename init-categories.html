@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicializar Categorias - KZSTORE</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🏪 Inicializar Categorias KZSTORE</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Instruções:</strong>
+            <ol>
+                <li>Abra o painel admin: <code>https://kzstore-341392738431.europe-southwest1.run.app/admin</code></li>
+                <li>Faça login como administrador</li>
+                <li>Volte aqui e clique no botão abaixo</li>
+            </ol>
+            <p><strong>Nota:</strong> Este script inicializará 7 categorias padrão (RAM, Armazenamento, Mini PCs, Câmeras, Redes, Software, Telemóveis) com suas subcategorias.</p>
+        </div>
+
+        <button id="initBtn" onclick="initializeCategories()">🚀 Inicializar Categorias</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://kzstore-341392738431.europe-southwest1.run.app';
+        
+        async function initializeCategories() {
+            const btn = document.getElementById('initBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Inicializando...';
+            result.style.display = 'none';
+            
+            try {
+                // Get token from localStorage
+                const token = localStorage.getItem('access_token');
+                
+                if (!token) {
+                    throw new Error('Token não encontrado. Faça login no painel admin primeiro.');
+                }
+                
+                console.log('📤 Enviando requisição para inicializar categorias...');
+                
+                const response = await fetch(`${API_URL}/api/categories/initialize-defaults`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                console.log('✅ Resposta recebida:', data);
+                
+                result.className = 'success';
+                result.innerHTML = `
+                    <h3>✅ Categorias Inicializadas com Sucesso!</h3>
+                    <p>${data.message}</p>
+                    <p><strong>${data.count}</strong> categorias criadas.</p>
+                    <pre>${JSON.stringify(data.categories, null, 2)}</pre>
+                    <p style="margin-top: 15px;">
+                        <strong>Próximo passo:</strong> Vá ao painel admin → Categorias e clique em "Atualizar" 
+                        para ver as novas categorias.
+                    </p>
+                `;
+                result.style.display = 'block';
+                
+                btn.textContent = '✓ Concluído';
+                
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                
+                result.className = 'error';
+                result.innerHTML = `
+                    <h3>❌ Erro ao Inicializar</h3>
+                    <p><strong>Mensagem:</strong> ${error.message}</p>
+                    <pre>${error.stack || 'Stack trace não disponível'}</pre>
+                    <p style="margin-top: 15px;">
+                        <strong>Possíveis soluções:</strong><br>
+                        1. Certifique-se de ter feito login no painel admin<br>
+                        2. Verifique se o token está válido<br>
+                        3. Tente fazer logout e login novamente<br>
+                        4. Verifique os logs do Cloud Run
+                    </p>
+                `;
+                result.style.display = 'block';
+                
+                btn.disabled = false;
+                btn.textContent = '🔄 Tentar Novamente';
+            }
+        }
+        
+        // Check if token exists on load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                const result = document.getElementById('result');
+                result.className = 'error';
+                result.innerHTML = `
+                    <h3>⚠️ Token Não Encontrado</h3>
+                    <p>Você precisa fazer login no painel admin primeiro.</p>
+                    <p>Abra: <a href="${API_URL}/admin" target="_blank">${API_URL}/admin</a></p>
+                `;
+                result.style.display = 'block';
+                document.getElementById('initBtn').disabled = true;
+            } else {
+                console.log('✅ Token encontrado no localStorage');
+            }
+        });
+    </script>
+</body>
+</html>

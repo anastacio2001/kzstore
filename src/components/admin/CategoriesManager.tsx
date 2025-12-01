@@ -40,7 +40,10 @@ export function CategoriesManager() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/categories');
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('/api/categories', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (response.ok) {
         const data = await response.json();
         console.log('📦 Categories loaded from API:', data);
@@ -186,10 +189,12 @@ export function CategoriesManager() {
     
     // Salvar na API para sincronizar entre usuários
     try {
+      const token = localStorage.getItem('access_token');
       const response = await fetch('/api/categories/bulk-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ categories: cats }),
       });
