@@ -148,7 +148,12 @@ export function useProductSearch(products: Product[]) {
 
     // Category filter
     if (filters.category && filters.category !== 'all') {
-      results = results.filter(p => p.categoria === filters.category);
+      const filterCategory = filters.category.toLowerCase();
+      results = results.filter(p => {
+        const productCategory = p.categoria?.toLowerCase() || '';
+        // Match exact ou partial (ex: "RAM" match "Memória RAM", "network" match "Redes e Internet")
+        return productCategory.includes(filterCategory) || filterCategory.includes(productCategory);
+      });
     }
 
     // Price range filter

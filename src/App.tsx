@@ -471,7 +471,20 @@ export default function App() {
   };
 
   const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
+    // Mapeamento de categorias da HomePage para categorias do banco
+    const categoryMap: Record<string, string> = {
+      'Memória RAM': 'RAM',
+      'Hard Disks': 'HDD',
+      'Mini PCs': 'Mini PC',
+      'Câmeras Wi-Fi': 'câmeras',
+      'Redes e Internet': 'network',
+      'Armazenamento': 'SSD',
+      'Software': 'software',
+      'Telemóveis': 'mobile'
+    };
+    
+    const mappedCategory = categoryMap[category] || category;
+    setSelectedCategory(mappedCategory);
     navigateTo('products');
   };
 
