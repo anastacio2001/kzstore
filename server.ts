@@ -2853,10 +2853,15 @@ app.delete('/api/favorites/:productId', authMiddleware, async (req: any, res) =>
 app.get('/api/categories', async (req, res) => {
   try {
     const categories = await prisma.category.findMany({
-      orderBy: { order: 'asc' },
+      orderBy: { display_order: 'asc' },
+      include: {
+        subcategories: {
+          orderBy: { order: 'asc' }
+        }
+      }
     });
     const converted = convertDecimalsToNumbers(categories);
-    res.json(converted);
+    res.json({ categories: converted });
   } catch (error: any) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ error: error.message });

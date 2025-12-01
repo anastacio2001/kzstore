@@ -43,22 +43,32 @@ export function CategoriesManager() {
       const response = await fetch('/api/categories');
       if (response.ok) {
         const data = await response.json();
-        // Transformar dados da API para formato do componente
-        const formattedCategories: Category[] = data.categories.map((cat: any) => ({
-          id: cat.id,
-          name: cat.name,
-          icon: cat.icon || '📦',
-          order: cat.display_order || 0,
-          subcategories: cat.subcategories?.map((sub: any) => ({
-            id: sub.id,
-            name: sub.name,
-            icon: sub.icon || '',
-            parentId: cat.id,
-            order: sub.display_order || 0
-          })) || []
-        }));
-        setCategories(formattedCategories);
+        console.log('📦 Categories loaded from API:', data);
+        
+        // Verificar se há categorias
+        if (data.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+          // Transformar dados da API para formato do componente
+          const formattedCategories: Category[] = data.categories.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            icon: cat.icon || '📦',
+            order: cat.display_order || 0,
+            subcategories: cat.subcategories?.map((sub: any) => ({
+              id: sub.id,
+              name: sub.name,
+              icon: sub.icon || '',
+              parentId: cat.id,
+              order: sub.order || 0
+            })) || []
+          }));
+          setCategories(formattedCategories);
+          console.log('✅ Categories formatted:', formattedCategories.length);
+        } else {
+          console.warn('⚠️ No categories found in API, loading defaults');
+          loadDefaultCategories();
+        }
       } else {
+        console.error('❌ API error:', response.status);
         // Fallback para localStorage se API falhar
         const saved = localStorage.getItem('productCategories');
         if (saved) {
@@ -68,7 +78,7 @@ export function CategoriesManager() {
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
+      console.error('❌ Erro ao carregar categorias:', error);
       // Fallback para localStorage
       const saved = localStorage.getItem('productCategories');
       if (saved) {
