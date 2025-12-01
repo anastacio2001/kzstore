@@ -29,7 +29,7 @@ export function useKZStore() {
       const data = await response.json();
       console.log('✅ Products fetched successfully:', data.products?.length || 0);
       
-      // Filtrar produtos inválidos e produtos de pré-venda (dupla verificação)
+      // Filtrar produtos inválidos
       const validProducts = (data.products || []).filter((p: any) => {
         if (!p || !p.id) {
           console.warn('⚠️ Invalid product detected (no id):', p);
@@ -37,11 +37,6 @@ export function useKZStore() {
         }
         if (typeof p.preco_aoa !== 'number') {
           console.warn('⚠️ Invalid product detected (preco_aoa is not a number):', p);
-          return false;
-        }
-        // Garantir que não é pré-venda
-        if (p.is_pre_order || p.pre_order || p.categoria?.toLowerCase() === 'pre-order') {
-          console.log('🚫 Filtering out pre-order product:', p.nome);
           return false;
         }
         return true;
