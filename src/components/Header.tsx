@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '../hooks/useAuth';
 
-type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-account' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets' | 'blog';
+type Page = 'home' | 'products' | 'cart' | 'admin' | 'wishlist' | 'faq' | 'about' | 'contact' | 'my-orders' | 'my-quotes' | 'my-account' | 'trade-in' | 'quote-request' | 'pre-orders' | 'support-tickets' | 'blog';
 
 type HeaderProps = {
   cartCount: number;
@@ -136,6 +136,16 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                     >
                       <ShoppingBag className="size-4" />
                       <span>Meus Pedidos</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('my-quotes');
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <FileText className="size-4" />
+                      <span>Minhas Cotações</span>
                     </button>
                     <button
                       onClick={() => {
@@ -291,6 +301,16 @@ export function Header({ cartCount, wishlistCount = 0, onNavigate, onCategorySel
                 >
                   <ShoppingBag className="size-5" />
                   Meus Pedidos
+                </button>
+                <button
+                  onClick={() => {
+                    onNavigate('my-quotes');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-all"
+                >
+                  <FileText className="size-5" />
+                  Minhas Cotações
                 </button>
                 <button
                   onClick={() => {
