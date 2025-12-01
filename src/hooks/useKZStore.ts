@@ -18,7 +18,8 @@ export function useKZStore() {
     setError(null);
     try {
       console.log('🔍 Fetching products from:', `${API_BASE}/products`);
-      const response = await fetch(`${API_BASE}/products`);
+      // Buscar apenas produtos normais (excluir pré-vendas)
+      const response = await fetch(`${API_BASE}/products?pre_order=false`);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -28,7 +29,7 @@ export function useKZStore() {
       const data = await response.json();
       console.log('✅ Products fetched successfully:', data.products?.length || 0);
       
-      // Filtrar produtos inválidos
+      // Filtrar produtos inválidos e produtos de pré-venda (dupla verificação)
       const validProducts = (data.products || []).filter((p: any) => {
         if (!p || !p.id) {
           console.warn('⚠️ Invalid product detected (no id):', p);
@@ -36,6 +37,11 @@ export function useKZStore() {
         }
         if (typeof p.preco_aoa !== 'number') {
           console.warn('⚠️ Invalid product detected (preco_aoa is not a number):', p);
+          return false;
+        }
+        // Garantir que não é pré-venda
+        if (p.is_pre_order || p.pre_order || p.categoria?.toLowerCase() === 'pre-order') {
+          console.log('🚫 Filtering out pre-order product:', p.nome);
           return false;
         }
         return true;

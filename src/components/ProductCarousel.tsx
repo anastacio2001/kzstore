@@ -56,10 +56,10 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 sm:p-8 border-2 border-gray-100 relative">
+    <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200 relative">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{title}</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
         
         {/* Navigation Arrows - Desktop */}
         <div className="hidden md:flex items-center gap-2">
@@ -93,7 +93,7 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
       {/* Scroll Container */}
       <div
         ref={scrollContainerRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+        className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -103,14 +103,14 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
         {products.map((product) => (
           <div
             key={product.id}
-            className="flex-shrink-0 w-[220px] sm:w-[260px] bg-white rounded-xl border-2 border-gray-100 hover:border-red-500 hover:shadow-lg transition-all duration-300 group"
+            className="flex-shrink-0 w-[160px] sm:w-[180px] bg-white rounded-lg border border-gray-200 hover:border-red-500 hover:shadow-md transition-all duration-300 group"
           >
             {/* Product Image */}
-            <div className="relative overflow-hidden rounded-t-xl">
+            <div className="relative overflow-hidden rounded-t-lg">
               <img
                 src={product.imagem_url}
                 alt={product.nome}
-                className="w-full h-[180px] sm:h-[200px] object-cover group-hover:scale-110 transition-transform duration-300"
+                className="w-full h-[140px] sm:h-[150px] object-cover group-hover:scale-105 transition-transform duration-300"
               />
               
               {/* Discount Badge */}
@@ -163,32 +163,32 @@ export function ProductCarousel({ title, products, onProductClick, onAddToCart }
 
             {/* Product Info */}
             <div 
-              className="p-4 cursor-pointer"
+              className="p-2.5 cursor-pointer"
               onClick={() => onProductClick(product)}
             >
               {/* Category */}
-              <p className="text-xs text-red-600 font-semibold uppercase mb-1">
+              <p className="text-[10px] text-red-600 font-semibold uppercase mb-1">
                 {product.categoria}
               </p>
 
               {/* Product Name */}
-              <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
+              <h3 className="text-xs font-semibold text-gray-900 mb-1.5 line-clamp-2 min-h-[2rem]">
                 {product.nome}
               </h3>
 
               {/* Price */}
-              <div className="mb-3">
+              <div className="mb-2">
                 {product.desconto ? (
                   <div>
-                    <p className="text-xs text-gray-400 line-through">
+                    <p className="text-[10px] text-gray-400 line-through">
                       {formatPrice(product.preco_aoa / (1 - product.desconto / 100))}
                     </p>
-                    <p className="text-lg font-bold text-red-600">
+                    <p className="text-sm font-bold text-red-600">
                       {formatPrice(product.preco_aoa)}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-lg font-bold text-red-600">
+                  <p className="text-sm font-bold text-red-600">
                     {formatPrice(product.preco_aoa)}
                   </p>
                 )}

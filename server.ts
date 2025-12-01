@@ -360,6 +360,12 @@ app.get('/api/products', async (req, res) => {
     // Filtrar por pré-venda se solicitado
     if (pre_order === 'true') {
       where.is_pre_order = true;
+    } else if (pre_order === 'false') {
+      // Excluir produtos de pré-venda
+      where.OR = [
+        { is_pre_order: false },
+        { is_pre_order: null }
+      ];
     }
     
     const products = await prisma.product.findMany({
