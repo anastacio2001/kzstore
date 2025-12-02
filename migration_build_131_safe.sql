@@ -108,20 +108,20 @@ BEGIN
   IF NOT EXISTS (
     SELECT * FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = 'kzstore_prod'
-    AND TABLE_NAME = 'Products'
+    AND TABLE_NAME = 'products'
     AND COLUMN_NAME = 'requires_special_shipping'
   ) THEN
-    ALTER TABLE `Products` ADD COLUMN `requires_special_shipping` BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE `products` ADD COLUMN `requires_special_shipping` BOOLEAN NOT NULL DEFAULT false;
   END IF;
 
   -- Check and add shipping_class
   IF NOT EXISTS (
     SELECT * FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = 'kzstore_prod'
-    AND TABLE_NAME = 'Products'
+    AND TABLE_NAME = 'products'
     AND COLUMN_NAME = 'shipping_class'
   ) THEN
-    ALTER TABLE `Products` ADD COLUMN `shipping_class` VARCHAR(50) NULL COMMENT 'standard, express, heavy, fragile';
+    ALTER TABLE `products` ADD COLUMN `shipping_class` VARCHAR(50) NULL COMMENT 'standard, express, heavy, fragile';
   END IF;
 END//
 
