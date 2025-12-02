@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell, Star, Edit2, Trash2, MessageSquare, Search, Folder, Menu, X, PenSquare } from 'lucide-react';
+import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell, Star, Edit2, Trash2, MessageSquare, Search, Folder, Menu, X, PenSquare, Mail } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -30,13 +30,14 @@ import AffiliatesManager from './admin/AffiliatesManager';
 import { ReviewsManager } from './admin/ReviewsManager'; // 🔥 NOVO: Gestão de avaliações
 import { DataMigrationTool } from './admin/DataMigrationTool'; // 🔥 Ferramenta de migração
 import { BlogManager } from './admin/BlogManager'; // 🔥 NOVO: Gestão de blog
+import { NewsletterManager } from './admin/NewsletterManager'; // 🔥 BUILD 131: Email marketing
 
 type UnifiedAdminPanelProps = {
   onBack: () => void;
   onLogout?: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'reviews' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'migration' | 'hero-settings' | 'categories' | 'footer-settings' | 'blog';
+type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'reviews' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'newsletter' | 'migration' | 'hero-settings' | 'categories' | 'footer-settings' | 'blog';
 
 export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -285,6 +286,7 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
                 { id: 'team', icon: UserCog, label: 'Equipe' },
                 { id: 'hero-settings', icon: Sparkles, label: 'Página Inicial' },
                 { id: 'blog', icon: PenSquare, label: 'Blog' },
+                { id: 'newsletter', icon: Mail, label: 'Newsletter' },
                 { id: 'reviews', icon: MessageSquare, label: 'Avaliações' },
                 { id: 'tickets', icon: Ticket, label: 'Tickets' },
                 { id: 'pre-orders', icon: Bell, label: 'Pré-Vendas' },
@@ -761,6 +763,11 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
         {/* Affiliates */}
         {activeTab === 'affiliates' && (
           <AffiliatesManager />
+        )}
+
+        {/* Newsletter - BUILD 131 */}
+        {activeTab === 'newsletter' && (
+          <NewsletterManager />
         )}
 
         {/* Blog */}

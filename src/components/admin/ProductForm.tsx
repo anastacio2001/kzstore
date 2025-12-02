@@ -73,14 +73,32 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
     }
   }, [formData.categoria, categories]);
 
-  const loadCategories = () => {
-    const saved = localStorage.getItem('productCategories');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCategories(parsed);
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
+  const loadCategories = async () => {
+    try {
+      // BUILD 131: Buscar categorias da API
+      const response = await fetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+      } else {
+        // Fallback para localStorage se API falhar
+        const saved = localStorage.getItem('productCategories');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setCategories(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar categorias:', error);
+      // Fallback para localStorage
+      const saved = localStorage.getItem('productCategories');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setCategories(parsed);
+        } catch (e) {
+          console.error('Erro ao parsear categorias do localStorage:', e);
+        }
       }
     }
   };

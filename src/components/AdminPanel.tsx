@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell } from 'lucide-react';
+import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell, Mail } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { toast } from 'sonner';
@@ -20,13 +20,14 @@ import TradeInManager from './admin/TradeInManager';
 import QuotesManager from './admin/QuotesManager';
 import TicketsManager from './admin/TicketsManager';
 import AffiliatesManager from './admin/AffiliatesManager';
+import { NewsletterManager } from './admin/NewsletterManager';
 
 type AdminPanelProps = {
   onBack: () => void;
   onLogout?: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'advanced-features';
+type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'newsletter' | 'advanced-features';
 
 export function AdminPanel({ onBack, onLogout }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
