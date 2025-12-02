@@ -13,11 +13,11 @@ async function main() {
     
     // Tentar adicionar a coluna (se já existir, vai dar erro mas é ok)
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE subcategories 
-      ADD COLUMN IF NOT EXISTS icon VARCHAR(200) NULL AFTER description
+      ALTER TABLE Subcategory
+      ADD COLUMN IF NOT EXISTS icon VARCHAR(200) NULL
     `);
-    
-    console.log('✅ Icon column added successfully to subcategories!');
+
+    console.log('✅ Icon column added successfully to Subcategory!');
     
     // Verificar quantas subcategorias existem
     const count = await prisma.subcategory.count();

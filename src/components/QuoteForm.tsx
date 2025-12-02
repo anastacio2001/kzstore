@@ -3,15 +3,16 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Card } from './ui/card';
-import { FileText, CheckCircle, ArrowLeft } from 'lucide-react';
+import { FileText, CheckCircle, ArrowLeft, List } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 type QuoteFormProps = {
   onBack: () => void;
   onSuccess?: () => void;
+  onViewMyQuotes?: () => void;
 };
 
-export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
+export function QuoteForm({ onBack, onSuccess, onViewMyQuotes }: QuoteFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -31,7 +32,7 @@ export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
       // Get token from localStorage
       let token = localStorage.getItem('token');
       if (!token) {
-        const userStr = localStorage.getItem('user');
+        const userStr = localStorage.getItem('kzstore_user') || localStorage.getItem('user');
         if (userStr) {
           try {
             const userData = JSON.parse(userStr);
@@ -87,14 +88,26 @@ export function QuoteForm({ onBack, onSuccess }: QuoteFormProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4 max-w-2xl">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
+        <div className="flex justify-between items-center mb-6">
+          <Button
+            variant="ghost"
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+
+          {onViewMyQuotes && (
+            <Button
+              variant="outline"
+              onClick={onViewMyQuotes}
+              className="border-[#E31E24] text-[#E31E24] hover:bg-[#E31E24] hover:text-white"
+            >
+              <List className="h-4 w-4 mr-2" />
+              Minhas Solicitações
+            </Button>
+          )}
+        </div>
 
         <Card className="p-8">
           <div className="text-center mb-8">

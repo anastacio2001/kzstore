@@ -25,7 +25,6 @@ function getAuthToken(): string | null {
 // Helper para criar headers com Authorization
 export function getAuthHeaders(): HeadersInit {
   const token = getAuthToken();
-  console.log('🔑 [API] getAuthHeaders - Token:', token ? `${token.substring(0, 20)}...` : 'NOT FOUND');
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -661,4 +660,4 @@ export function isFavorite(productId: string) {
   return favorites.includes(productId);
 }
 
-console.log('✅ API helpers loaded successfully');
+// API helpers loaded

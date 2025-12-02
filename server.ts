@@ -2298,18 +2298,18 @@ app.post('/api/tickets/:id/attachments', upload.single('file'), async (req, res)
 app.get('/api/quotes', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.userId as string;
-    
+
     // Verificar se é admin
     let isAdmin = false;
-    const adminUser = await prisma.user.findUnique({ 
+    const adminUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { user_type: true }
     });
-    
+
     if (adminUser?.user_type === 'admin') {
       isAdmin = true;
     } else {
-      const customer = await prisma.customerProfile.findUnique({ 
+      const customer = await prisma.customerProfile.findUnique({
         where: { id: userId },
         select: { role: true }
       });
@@ -2317,13 +2317,13 @@ app.get('/api/quotes', authMiddleware, async (req: any, res) => {
         isAdmin = true;
       }
     }
-    
+
     // Se admin: buscar todos, senão: buscar apenas do usuário
     const quotes = await prisma.quote.findMany({
       where: isAdmin ? {} : { user_id: userId },
       orderBy: { created_at: 'desc' },
     });
-    
+
     res.json({ quotes });
   } catch (error: any) {
     console.error('Error fetching quotes:', error);
@@ -2378,9 +2378,7 @@ app.post('/api/quotes', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.userId as string;
     const { user_name, user_email, user_phone, company, requirements, budget } = req.body;
-    
-    console.log('📥 Criando cotação para:', { userId, user_name, user_email, user_phone });
-    
+
     // Gerar número do orçamento
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -2388,7 +2386,7 @@ app.post('/api/quotes', authMiddleware, async (req: any, res) => {
     const day = String(date.getDate()).padStart(2, '0');
     const random = Math.floor(Math.random() * 9000) + 1000;
     const quoteNumber = `QT${year}${month}${day}-${random}`;
-    
+
     const quote = await prisma.quote.create({
       data: {
         quote_number: quoteNumber,
@@ -2403,12 +2401,10 @@ app.post('/api/quotes', authMiddleware, async (req: any, res) => {
         priority: 'normal',
       },
     });
-    
-    console.log('✅ Orçamento criado:', quoteNumber, 'ID:', quote.id);
-    
+
     res.status(201).json({ quote });
   } catch (error: any) {
-    console.error('❌ Error creating quote:', error.message);
+    console.error('Error creating quote:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -3000,7 +2996,7 @@ app.post('/api/categories/bulk-update', requireAdmin, async (req, res) => {
                 id: sub.id,
                 name: sub.name,
                 slug: subSlug,
-                icon: sub.icon || '',
+                // icon: sub.icon || '',  // ← Removido temporariamente
                 category_id: category.id,
                 order: sub.order || 0,
               }

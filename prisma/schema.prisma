@@ -566,15 +566,15 @@ model Subcategory {
   name          String    @db.VarChar(200)
   slug          String    @unique @db.VarChar(200)
   description   String?   @db.Text
-  icon          String?   @db.VarChar(200)
+  // icon          String?   @db.VarChar(200)  // Removido temporariamente - não existe no banco de produção
   order         Int       @default(0)
   active        Boolean   @default(true)
-  
+
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
-  
+
   category      Category  @relation(fields: [category_id], references: [id], onDelete: Cascade)
-  
+
   @@index([category_id])
   @@index([slug])
   @@index([active])

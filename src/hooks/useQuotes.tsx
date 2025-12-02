@@ -35,10 +35,11 @@ export function useQuotes() {
 
   const getAuthHeaders = (): HeadersInit => {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    
+
+    // Tentar pegar token de diferentes locais
     let token = localStorage.getItem('token');
     if (!token) {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('kzstore_user') || localStorage.getItem('user');
       if (userStr) {
         try {
           const userData = JSON.parse(userStr);
@@ -48,11 +49,11 @@ export function useQuotes() {
         }
       }
     }
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     return headers;
   };
 
@@ -60,20 +61,22 @@ export function useQuotes() {
     setLoading(true);
     setError(null);
     try {
+      const headers = getAuthHeaders();
+
       const response = await fetch('/api/quotes', {
         credentials: 'include',
-        headers: getAuthHeaders(),
+        headers,
       });
-      
+
       if (!response.ok) {
         throw new Error('Erro ao buscar orçamentos');
       }
-      
+
       const data = await response.json();
       setQuotes(data.quotes || []);
       return data.quotes || [];
     } catch (err) {
-      console.error('[useQuotes] Error fetching quotes:', err);
+      console.error('Error fetching quotes:', err);
       setError(String(err));
       return [];
     } finally {

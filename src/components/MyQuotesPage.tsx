@@ -4,13 +4,14 @@ import { useQuotes, Quote } from '../hooks/useQuotes';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { FileText, Clock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, ArrowLeft, Plus } from 'lucide-react';
 
 interface MyQuotesPageProps {
   onBack?: () => void;
+  onNewQuote?: () => void;
 }
 
-export default function MyQuotesPage({ onBack }: MyQuotesPageProps) {
+export default function MyQuotesPage({ onBack, onNewQuote }: MyQuotesPageProps) {
   const { user } = useAuth();
   const { fetchQuotes, loading } = useQuotes();
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -75,6 +76,16 @@ export default function MyQuotesPage({ onBack }: MyQuotesPageProps) {
             <p className="text-gray-600">Acompanhe suas solicitações de orçamento</p>
           </div>
         </div>
+
+        {onNewQuote && (
+          <Button
+            onClick={onNewQuote}
+            className="bg-[#E31E24] hover:bg-[#C01A1F] text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Solicitação
+          </Button>
+        )}
       </div>
 
       {loading ? (

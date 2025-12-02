@@ -24,48 +24,31 @@ export function MyOrdersPage({ onBack }: MyOrdersPageProps) {
 
   const loadOrders = async () => {
     if (!user?.id && !user?.email) {
-      console.warn('⚠️ [MyOrdersPage] No user ID or email, showing login modal');
-      console.log('📋 [MyOrdersPage] User object:', user);
       setShowLoginModal(true);
       return;
     }
 
     setLoading(true);
     try {
-      console.log('📋 [MyOrdersPage] Loading orders...');
-      console.log('📋 [MyOrdersPage] User ID:', user?.id);
-      console.log('📋 [MyOrdersPage] User email:', user?.email);
-      console.log('📋 [MyOrdersPage] User role:', (user as any)?.role || 'customer');
-      console.log('📋 [MyOrdersPage] Has access_token:', !!(user as any)?.access_token);
-
       let userOrders;
 
       // Tentar buscar por user_id primeiro
       if (user.id) {
-        console.log('📋 [MyOrdersPage] Trying to load by user_id:', user.id);
         userOrders = await getUserOrders(user.id);
       }
 
       // Se não encontrou por ID ou não tem ID, buscar por email
       if ((!userOrders || userOrders.length === 0) && user.email) {
-        console.log('📋 [MyOrdersPage] Trying to load by user_email:', user.email);
         const response = await fetch(`/api/orders?user_email=${encodeURIComponent(user.email)}`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           userOrders = data.orders || [];
-          console.log('📋 [MyOrdersPage] Found by email:', userOrders.length, 'orders');
-        } else {
-          console.error('📋 [MyOrdersPage] Failed to fetch by email:', response.status);
         }
       }
 
-      console.log('✅ [MyOrdersPage] Orders loaded:', userOrders?.length || 0);
-      console.log('📋 [MyOrdersPage] Order IDs:', userOrders?.map(o => o.id) || []);
-      console.log('📋 [MyOrdersPage] Order user_ids:', userOrders?.map(o => o.user_id) || []);
-
       setOrders(userOrders || []);
     } catch (error) {
-      console.error('❌ [MyOrdersPage] Error loading orders:', error);
+      console.error('Error loading orders:', error);
       setOrders([]);
     } finally {
       setLoading(false);
@@ -73,19 +56,12 @@ export function MyOrdersPage({ onBack }: MyOrdersPageProps) {
   };
 
   useEffect(() => {
-    console.log('🔄 [MyOrdersPage] useEffect triggered, user?.id:', user?.id);
+    if (!user?.id && !user?.email) return;
+
     loadOrders();
-    
-    // Recarregar pedidos a cada 30 segundos para pegar atualizações
-    const interval = setInterval(() => {
-      if (user?.id || user?.email) {
-        console.log('🔄 [MyOrdersPage] Auto-reloading orders...');
-        loadOrders();
-      }
-    }, 30000); // 30 segundos
-    
-    return () => clearInterval(interval);
-  }, [user?.id]);
+
+    // Auto-reload desabilitado conforme solicitado pelo usuário
+  }, [user?.id, user?.email]);
 
   // Recarregar quando o modal é aberto
   const handleViewOrder = async (order: Order) => {
@@ -94,22 +70,18 @@ export function MyOrdersPage({ onBack }: MyOrdersPageProps) {
     await loadOrders();
   };
 
-  // Auto-refresh do pedido selecionado
-  useEffect(() => {
-    if (!selectedOrder) return;
-
-    const interval = setInterval(async () => {
-      console.log('🔄 [MyOrdersPage] Auto-refreshing selected order...');
-      await loadOrders();
-      // Atualizar o pedido selecionado com dados mais recentes
-      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
-      if (updatedOrder) {
-        setSelectedOrder(updatedOrder);
-      }
-    }, 10000); // 10 segundos - mais frequente no modal
-
-    return () => clearInterval(interval);
-  }, [selectedOrder?.id]);
+  // Auto-refresh DESABILITADO conforme solicitado
+  // useEffect(() => {
+  //   if (!selectedOrder) return;
+  //   const interval = setInterval(async () => {
+  //     await loadOrders();
+  //     const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+  //     if (updatedOrder) {
+  //       setSelectedOrder(updatedOrder);
+  //     }
+  //   }, 30000);
+  //   return () => clearInterval(interval);
+  // }, [selectedOrder?.id, orders]);
 
   // Filter orders by current user (usando novo formato Supabase)
   const myOrders = orders;

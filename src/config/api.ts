@@ -74,4 +74,4 @@ export async function fetchAPI(
   return fetch(url, defaultOptions);
 }
 
-console.log('🔧 API Config loaded:', API_BASE_URL);
+// API Config loaded

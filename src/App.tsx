@@ -848,14 +848,20 @@ export default function App() {
             />
           )}
 
-          {currentPage === 'my-quotes' && <MyQuotesPage onBack={() => navigateTo('home')} />}
+          {currentPage === 'my-quotes' && (
+            <MyQuotesPage
+              onBack={() => navigateTo('home')}
+              onNewQuote={() => navigateTo('quote-request')}
+            />
+          )}
 
           {currentPage === 'trade-in' && <TradeInForm />}
 
           {currentPage === 'quote-request' && (
-            <QuoteForm 
-              onBack={() => navigateTo('home')} 
+            <QuoteForm
+              onBack={() => navigateTo('home')}
               onSuccess={() => navigateTo('my-quotes')}
+              onViewMyQuotes={() => navigateTo('my-quotes')}
             />
           )}
 
