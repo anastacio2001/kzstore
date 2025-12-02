@@ -10,6 +10,7 @@ import { BANK_ACCOUNTS, COMPANY_INFO } from '../config/constants';
 import { toast } from 'sonner';
 import { CouponInput } from './CouponInput';
 import AvailableCoupons from './AvailableCoupons';
+import { ShippingCalculator } from './ShippingCalculator'; // BUILD 131
 import { createOrder, validateStock, OrderItem } from '../services/ordersService';
 import { incrementCouponUsage } from '../services/couponsService';
 import { copyToClipboard } from '../utils/clipboard';
@@ -41,6 +42,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [copied, setCopied] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [dynamicShippingCost, setDynamicShippingCost] = useState(3500); // BUILD 131: Dynamic shipping
 
   const { user: supabaseUser } = useAuth();
   const { user: localUser, quickLogin } = useLocalAuth();
@@ -108,7 +110,14 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
       : appliedCoupon.discount_value
     : 0;
   
-  const total = safeCartTotal + shippingCost - discountAmount;
+  // Use dynamic shipping cost se maior que o padrão calculado
+  const finalShippingCost = Math.max(shippingCost, dynamicShippingCost);
+  const total = safeCartTotal + finalShippingCost - discountAmount;
+
+  // BUILD 131: Handle dynamic shipping calculation
+  const handleShippingCalculated = (cost: number, days: number) => {
+    setDynamicShippingCost(cost);
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -228,12 +237,12 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
         user_name: formData.nome,
         items: orderItems,
         subtotal: safeCartTotal,
-        shipping_cost: shippingCost,
+        shipping_cost: finalShippingCost,
         discount_amount: discountAmount,
         discount_type: appliedCoupon ? 'coupon' : undefined,
         discount_details: discountDetails || undefined,
         tax_amount: 0,
-        total: safeCartTotal + shippingCost - discountAmount,
+        total: safeCartTotal + finalShippingCost - discountAmount,
         payment_method: paymentMethod,
         shipping_address: shippingAddress,
         notes: formData.observacoes || undefined,
@@ -541,6 +550,12 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                       <option value="Lubango">Lubango</option>
                     </select>
                   </div>
+
+                  {/* BUILD 131: Dynamic Shipping Calculator */}
+                  <ShippingCalculator
+                    defaultProvince={formData.cidade}
+                    onCalculate={handleShippingCalculated}
+                  />
 
                   {/* Observações */}
                   <div>
@@ -883,12 +898,12 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                     <Truck className="size-4" />
                     <span>Frete</span>
                   </div>
-                  {shippingCost === 0 ? (
+                  {finalShippingCost === 0 ? (
                     <span className="font-semibold text-green-600 flex items-center gap-1">
                       🎁 GRÁTIS
                     </span>
                   ) : (
-                    <span className="font-semibold">{shippingCost.toLocaleString('pt-AO')} AOA</span>
+                    <span className="font-semibold">{finalShippingCost.toLocaleString('pt-AO')} AOA</span>
                   )}
                 </div>
                 

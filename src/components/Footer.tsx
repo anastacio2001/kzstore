@@ -10,6 +10,7 @@ import {
   Linkedin,
   Clock,
 } from "lucide-react";
+import { NewsletterForm } from './NewsletterForm'; // BUILD 131
 
 interface FooterSettings {
   companyName: string;
@@ -61,7 +62,8 @@ export function Footer({ onNavigate }: FooterProps) {
       { id: '2', title: 'Política de Devolução', slug: 'devolucao', content: '', order: 2 },
       { id: '3', title: 'Garantia', slug: 'garantia', content: '', order: 3 },
       { id: '4', title: 'Termos de Uso', slug: 'termos', content: '', order: 4 },
-      { id: '5', title: 'Política de Privacidade', slug: 'privacidade', content: '', order: 5 }
+      { id: '5', title: 'Política de Privacidade', slug: 'privacidade', content: '', order: 5 },
+      { id: '6', title: '🔍 Rastrear Pedido', slug: 'track-order', content: '', order: 6 }
     ],
     copyrightText: '© 2025 KZSTORE. Todos os direitos reservados.',
     paymentMethods: ['Multicaixa Express', 'Transferência Bancária']
@@ -234,6 +236,15 @@ export function Footer({ onNavigate }: FooterProps) {
               <p className="text-gray-400 text-sm">
                 8:00 - 17:00
               </p>
+            </div>
+
+            {/* BUILD 131: Newsletter Signup */}
+            <div className="mt-6">
+              <h5 className="text-sm font-semibold mb-3">📧 Newsletter</h5>
+              <p className="text-xs text-gray-400 mb-3">
+                Receba promoções e novidades
+              </p>
+              <NewsletterForm source="footer" />
             </div>
           </div>
         </div>

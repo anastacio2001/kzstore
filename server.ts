@@ -4100,6 +4100,422 @@ app.listen(PORT, '0.0.0.0', async () => {
   }
 });
 
+// ============================================================================
+// BUILD 131: ADVANCED E-COMMERCE FEATURES
+// ============================================================================
+
+// 📦 PUBLIC ORDER TRACKING (sem login)
+app.get('/api/orders/track', async (req, res) => {
+  try {
+    const { order_number, email } = req.query;
+
+    if (!order_number || !email) {
+      return res.status(400).json({ error: 'Número do pedido e email são obrigatórios' });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        order_number: order_number as string,
+        user_email: email as string
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    const orderConverted = convertDecimalsToNumbers(order);
+    res.json({ order: orderConverted });
+  } catch (error: any) {
+    console.error('Error tracking order:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🚚 SHIPPING ZONES
+app.get('/api/shipping-zones', async (req, res) => {
+  try {
+    const zones = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM ShippingZone WHERE is_active = true ORDER BY name ASC
+    `);
+    res.json({ zones });
+  } catch (error: any) {
+    console.error('Error fetching shipping zones:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/shipping-zones', requireAdmin, async (req, res) => {
+  try {
+    const { name, province, municipalities, cost, estimated_days } = req.body;
+    const id = `zone-${province.toLowerCase().replace(/\s+/g, '-')}`;
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO ShippingZone (id, name, province, municipalities, cost, estimated_days, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, true, NOW(), NOW())
+    `, id, name, province, JSON.stringify(municipalities || []), cost, estimated_days);
+
+    res.json({ message: 'Zona de envio criada com sucesso', id });
+  } catch (error: any) {
+    console.error('Error creating shipping zone:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/shipping-zones/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const setClauses = Object.keys(updates)
+      .map(key => `${key} = ?`)
+      .join(', ');
+    
+    const values = [...Object.values(updates), id];
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE ShippingZone SET ${setClauses}, updated_at = NOW() WHERE id = ?
+    `, ...values);
+
+    res.json({ message: 'Zona de envio atualizada' });
+  } catch (error: any) {
+    console.error('Error updating shipping zone:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/shipping-zones/calculate', async (req, res) => {
+  try {
+    const { province } = req.query;
+
+    if (!province) {
+      return res.status(400).json({ error: 'Província é obrigatória' });
+    }
+
+    const zones = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM ShippingZone WHERE province = ? AND is_active = true LIMIT 1
+    `, province);
+
+    if (zones.length === 0) {
+      return res.json({ cost: 3500, estimated_days: 3, zone: 'default' });
+    }
+
+    const zone = zones[0];
+    res.json({ 
+      cost: Number(zone.cost), 
+      estimated_days: zone.estimated_days,
+      zone: zone.name 
+    });
+  } catch (error: any) {
+    console.error('Error calculating shipping:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 📧 NEWSLETTER
+app.post('/api/newsletter/subscribe', async (req, res) => {
+  try {
+    const { email, name, source } = req.body;
+
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
+    }
+
+    const id = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO NewsletterSubscriber (id, email, name, status, subscribed_at, source)
+      VALUES (?, ?, ?, 'active', NOW(), ?)
+      ON DUPLICATE KEY UPDATE 
+        status = 'active', 
+        name = COALESCE(?, name),
+        subscribed_at = NOW()
+    `, id, email, name, source || 'website', name);
+
+    res.json({ message: 'Inscrito com sucesso!' });
+  } catch (error: any) {
+    console.error('Error subscribing to newsletter:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/newsletter/unsubscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE NewsletterSubscriber 
+      SET status = 'unsubscribed', unsubscribed_at = NOW() 
+      WHERE email = ?
+    `, email);
+
+    res.json({ message: 'Desinscrito com sucesso' });
+  } catch (error: any) {
+    console.error('Error unsubscribing:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/newsletter/subscribers', requireAdmin, async (req, res) => {
+  try {
+    const subscribers = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM NewsletterSubscriber ORDER BY subscribed_at DESC
+    `);
+    res.json({ subscribers, total: subscribers.length });
+  } catch (error: any) {
+    console.error('Error fetching subscribers:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 📨 EMAIL CAMPAIGNS
+app.post('/api/campaigns', requireAdmin, async (req, res) => {
+  try {
+    const { name, subject, content_html, content_text, scheduled_at } = req.body;
+    const id = `camp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO EmailCampaign 
+      (id, name, subject, content_html, content_text, status, scheduled_at, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, NOW(), NOW())
+    `, id, name, subject, content_html, content_text || '', scheduled_at || null, req.userId);
+
+    res.json({ message: 'Campanha criada', id });
+  } catch (error: any) {
+    console.error('Error creating campaign:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/campaigns', requireAdmin, async (req, res) => {
+  try {
+    const campaigns = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM EmailCampaign ORDER BY created_at DESC
+    `);
+    res.json({ campaigns });
+  } catch (error: any) {
+    console.error('Error fetching campaigns:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🛒 CART SYNC (Cloud Cart)
+app.get('/api/cart', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const sessionId = req.headers['x-session-id'] as string;
+
+    if (!userId && !sessionId) {
+      return res.status(400).json({ error: 'User ID ou Session ID necessário' });
+    }
+
+    const carts = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT * FROM Cart 
+      WHERE ${userId ? 'user_id = ?' : 'session_id = ?'}
+      AND (expires_at IS NULL OR expires_at > NOW())
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `, userId || sessionId);
+
+    if (carts.length === 0) {
+      return res.json({ cart: null });
+    }
+
+    const cart = carts[0];
+    res.json({ 
+      cart: {
+        ...cart,
+        items: typeof cart.items === 'string' ? JSON.parse(cart.items) : cart.items
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching cart:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/cart', async (req, res) => {
+  try {
+    const { items, total } = req.body;
+    const userId = req.userId;
+    const sessionId = req.headers['x-session-id'] as string || `sess_${Date.now()}`;
+
+    const id = `cart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
+
+    // Delete old cart
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM Cart WHERE ${userId ? 'user_id = ?' : 'session_id = ?'}
+    `, userId || sessionId);
+
+    // Insert new cart
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO Cart (id, user_id, session_id, items, total, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `, id, userId, sessionId, JSON.stringify(items), total, expiresAt);
+
+    res.json({ message: 'Carrinho salvo', id });
+  } catch (error: any) {
+    console.error('Error saving cart:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/cart/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { items, total } = req.body;
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE Cart 
+      SET items = ?, total = ?, updated_at = NOW()
+      WHERE id = ?
+    `, JSON.stringify(items), total, id);
+
+    res.json({ message: 'Carrinho atualizado' });
+  } catch (error: any) {
+    console.error('Error updating cart:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/cart', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const sessionId = req.headers['x-session-id'] as string;
+
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM Cart WHERE ${userId ? 'user_id = ?' : 'session_id = ?'}
+    `, userId || sessionId);
+
+    res.json({ message: 'Carrinho deletado' });
+  } catch (error: any) {
+    console.error('Error deleting cart:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔔 PUSH NOTIFICATIONS
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    const userId = req.userId;
+
+    if (!endpoint || !keys?.auth || !keys?.p256dh) {
+      return res.status(400).json({ error: 'Dados de subscrição inválidos' });
+    }
+
+    const id = `push_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO PushSubscription 
+      (id, user_id, endpoint, keys_auth, keys_p256dh, user_agent, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, true, NOW(), NOW())
+      ON DUPLICATE KEY UPDATE is_active = true, updated_at = NOW()
+    `, id, userId, endpoint, keys.auth, keys.p256dh, req.headers['user-agent'] || '');
+
+    res.json({ message: 'Subscrito com sucesso' });
+  } catch (error: any) {
+    console.error('Error subscribing to push:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/push/send', requireAdmin, async (req, res) => {
+  try {
+    const { title, body, url, user_id } = req.body;
+
+    // TODO: Implement web-push library para enviar notificações
+    // Requer configuração de VAPID keys no .env
+    
+    res.json({ message: 'Push notification enviado', sent: 0 });
+  } catch (error: any) {
+    console.error('Error sending push:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🔗 ERP WEBHOOKS
+app.post('/api/webhooks/stock-update', async (req, res) => {
+  try {
+    const { product_id, stock, source } = req.body;
+
+    if (!product_id || stock === undefined) {
+      return res.status(400).json({ error: 'product_id e stock são obrigatórios' });
+    }
+
+    // Log webhook event
+    const eventId = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO WebhookEvent 
+      (id, event_type, payload, source, status, created_at, updated_at)
+      VALUES (?, 'stock.updated', ?, ?, 'pending', NOW(), NOW())
+    `, eventId, JSON.stringify(req.body), source || 'external_erp');
+
+    // Update product stock
+    await prisma.product.update({
+      where: { id: product_id },
+      data: { 
+        estoque: stock,
+        updated_at: new Date()
+      }
+    });
+
+    // Mark event as processed
+    await prisma.$executeRawUnsafe(`
+      UPDATE WebhookEvent 
+      SET status = 'processed', processed_at = NOW() 
+      WHERE id = ?
+    `, eventId);
+
+    res.json({ message: 'Estoque atualizado via webhook', product_id, stock });
+  } catch (error: any) {
+    console.error('Error processing webhook:', error);
+    
+    // Mark as failed
+    try {
+      await prisma.$executeRawUnsafe(`
+        UPDATE WebhookEvent 
+        SET status = 'failed', error_message = ?, retry_count = retry_count + 1 
+        WHERE id = ?
+      `, error.message, req.body.event_id);
+    } catch {}
+
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/webhooks/events', requireAdmin, async (req, res) => {
+  try {
+    const { status, event_type } = req.query;
+    
+    let query = 'SELECT * FROM WebhookEvent WHERE 1=1';
+    const params: any[] = [];
+
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    if (event_type) {
+      query += ' AND event_type = ?';
+      params.push(event_type);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT 100';
+
+    const events = await prisma.$queryRawUnsafe<any[]>(query, ...params);
+    res.json({ events, total: events.length });
+  } catch (error: any) {
+    console.error('Error fetching webhook events:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END BUILD 131
+// ============================================================================
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n⏹️  Desligando servidor...');

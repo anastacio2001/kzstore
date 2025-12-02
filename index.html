@@ -6,11 +6,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#E31E24" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/uploads/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/uploads/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/uploads/icon-192x192.png" />
+    
     <title>KZSTORE - Tech & Electronics</title>
     <meta name="description" content="Loja online de produtos eletrônicos e tecnologia em Angola" />
-  </head>    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('✅ Service Worker registrado:', registration.scope);
+              
+              // Request notification permission
+              if ('Notification' in window && Notification.permission === 'default') {
+                // Will ask later when user interacts
+              }
+            })
+            .catch(error => {
+              console.error('❌ Erro ao registrar Service Worker:', error);
+            });
+        });
+      }
+
+      // PWA Install Prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('💡 PWA pode ser instalado');
+        
+        // Trigger custom install UI
+        window.dispatchEvent(new CustomEvent('pwa-installable', { detail: e }));
+      });
+
+      window.addEventListener('appinstalled', () => {
+        console.log('✅ PWA instalado!');
+        deferredPrompt = null;
+      });
+    </script>
+  </body>
+</html>
   

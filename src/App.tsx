@@ -45,6 +45,7 @@ import { QuoteForm } from './components/QuoteForm';
 import { PreOrdersPage } from './components/PreOrdersPage';
 import { SupportTicketsPage } from './components/SupportTicketsPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
+import { TrackOrderPage } from './components/TrackOrderPage'; // 🔥 BUILD 131: Rastreamento público
 import { SEO } from './components/SEO';
 import { Analytics } from './components/Analytics';
 import { seoConfigs } from './config/seo';
@@ -133,7 +134,7 @@ export default function App() {
     // Primeiro, tentar obter da URL hash
     const hash = window.location.hash.slice(1); // Remove o #
     if (hash) {
-      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'forgot-password', 'reset-password', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-quotes', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets'];
+      const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'forgot-password', 'reset-password', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-quotes', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets', 'track-order'];
       if (validPages.includes(hash as Page)) {
         return hash as Page;
       }
@@ -884,6 +885,11 @@ export default function App() {
 
           {currentPage === 'reset-password' && (
             <ResetPasswordPage />
+          )}
+
+          {/* BUILD 131: Rastreamento Público de Pedidos */}
+          {currentPage === 'track-order' && (
+            <TrackOrderPage />
           )}
         </main>
 

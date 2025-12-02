@@ -1,0 +1,156 @@
+import { useState, useEffect } from 'react';
+import { Bell, BellOff, CheckCircle } from 'lucide-react';
+import { Button } from './ui/button';
+import { toast } from 'sonner';
+
+export function PushNotificationButton() {
+  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPermission(Notification.permission);
+      checkSubscription();
+    }
+  }, []);
+
+  const checkSubscription = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      setSubscribed(!!subscription);
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+    }
+  };
+
+  const subscribe = async () => {
+    setLoading(true);
+
+    try {
+      // Request notification permission
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+
+      if (perm !== 'granted') {
+        toast.error('Permissão de notificações negada');
+        return;
+      }
+
+      // Get service worker registration
+      const registration = await navigator.serviceWorker.ready;
+
+      // Subscribe to push notifications
+      // Note: In production, you need to configure VAPID keys
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          'YOUR_PUBLIC_VAPID_KEY' // Replace with actual VAPID public key
+        )
+      });
+
+      // Send subscription to backend
+      const response = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: {
+            auth: arrayBufferToBase64(subscription.getKey('auth')),
+            p256dh: arrayBufferToBase64(subscription.getKey('p256dh'))
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao registrar notificações');
+      }
+
+      setSubscribed(true);
+      toast.success('Notificações ativadas com sucesso!');
+    } catch (error: any) {
+      console.error('Error subscribing:', error);
+      toast.error('Erro ao ativar notificações');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unsubscribe = async () => {
+    setLoading(true);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+
+      setSubscribed(false);
+      toast.success('Notificações desativadas');
+    } catch (error) {
+      console.error('Error unsubscribing:', error);
+      toast.error('Erro ao desativar notificações');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!('Notification' in window)) {
+    return null;
+  }
+
+  return (
+    <Button
+      onClick={subscribed ? unsubscribe : subscribe}
+      disabled={loading}
+      variant="outline"
+      className="gap-2"
+    >
+      {loading ? (
+        <div className="size-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+      ) : subscribed ? (
+        <>
+          <CheckCircle className="size-4 text-green-600" />
+          <span>Notificações Ativas</span>
+        </>
+      ) : (
+        <>
+          <Bell className="size-4" />
+          <span>Ativar Notificações</span>
+        </>
+      )}
+    </Button>
+  );
+}
+
+// Utility functions
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer | null): string {
+  if (!buffer) return '';
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
