@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS `WebhookEvent` (
   INDEX `idx_webhook_source` (`source`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. ADD COLUMNS TO PRODUCT (safe version with procedure)
+-- 7. ADD COLUMNS TO PRODUCTS (safe version with procedure)
 DELIMITER //
 
 DROP PROCEDURE IF EXISTS AddProductColumns//
@@ -108,20 +108,20 @@ BEGIN
   IF NOT EXISTS (
     SELECT * FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = 'kzstore_prod'
-    AND TABLE_NAME = 'Product'
+    AND TABLE_NAME = 'Products'
     AND COLUMN_NAME = 'requires_special_shipping'
   ) THEN
-    ALTER TABLE `Product` ADD COLUMN `requires_special_shipping` BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE `Products` ADD COLUMN `requires_special_shipping` BOOLEAN NOT NULL DEFAULT false;
   END IF;
 
   -- Check and add shipping_class
   IF NOT EXISTS (
     SELECT * FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = 'kzstore_prod'
-    AND TABLE_NAME = 'Product'
+    AND TABLE_NAME = 'Products'
     AND COLUMN_NAME = 'shipping_class'
   ) THEN
-    ALTER TABLE `Product` ADD COLUMN `shipping_class` VARCHAR(50) NULL COMMENT 'standard, express, heavy, fragile';
+    ALTER TABLE `Products` ADD COLUMN `shipping_class` VARCHAR(50) NULL COMMENT 'standard, express, heavy, fragile';
   END IF;
 END//
 
