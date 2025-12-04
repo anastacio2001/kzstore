@@ -39,6 +39,55 @@ import { sendOrderCreatedNotification, enqueueWhatsApp, sendWhatsAppTemplate, tw
 import { sendEmail, generateOrderConfirmationEmail } from './backend/mailer';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
+import compression from 'compression';
+
+// Performance & Error Tracking
+import { initializeSentry, sentryErrorHandler } from './backend/config/sentry';
+import { initializeRedis, cacheMiddleware, invalidateCache } from './backend/config/redis';
+
+// Validation
+import { validate, validateQuery } from './backend/middleware/validation';
+import * as schemas from './backend/validation/schemas';
+
+// Pagination
+import { paginationMiddleware, createPaginatedResponse, getPaginationParams, getOffset } from './backend/utils/pagination';
+
+// Analytics
+import {
+  calculateCLV,
+  calculateConversionRate,
+  calculateRevenue,
+  analyzeSalesFunnel,
+  getHistoricalMetrics
+} from './backend/analytics';
+
+// Bulk Operations
+import {
+  importProductsFromFile,
+  exportProductsToCSV,
+  exportProductsToExcel,
+  exportProductsToPDF,
+  bulkUpdateProducts
+} from './backend/bulk-operations';
+
+// Recommendations
+import {
+  getProductRecommendations,
+  getPersonalizedRecommendations,
+  getPopularProducts,
+  getRelatedProducts,
+  getTrendingProducts
+} from './backend/recommendations';
+
+// Cron Jobs
+import {
+  checkLowStockAlerts,
+  processAbandonedCarts,
+  calculateDailyMetrics,
+  cleanupOldCarts,
+  updateFeaturedProducts,
+  sendWeeklyReport
+} from './backend/cron-jobs';
 
 // Debug logs control
 const DEBUG_LOGS = process.env.ENABLE_DEBUG_LOGS === 'true' || process.env.NODE_ENV !== 'production';
@@ -47,7 +96,18 @@ const debugLog = (...args: any[]) => {
 };
 
 const app = express();
+
+// ============================================
+// INITIALIZE SENTRY (MUST BE FIRST!)
+// ============================================
+initializeSentry(app);
+
 const prisma = getPrismaClient();
+
+// ============================================
+// INITIALIZE REDIS
+// ============================================
+initializeRedis();
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
 // Helper function to get base URL
@@ -103,15 +163,9 @@ const upload = multer({
 // CORS CONFIGURATION (DEVE VIR PRIMEIRO!)
 // ============================================
 
-const allowedOrigins = isProduction 
-  ? [
-      'https://kzstore.com', 
-      'https://www.kzstore.com',
-      'https://kzstore.ao',
-      'https://www.kzstore.ao',
-      'https://kzstore-341392738431.europe-southwest1.run.app',
-      'https://kzstore-rkksacgala-no.a.run.app'
-    ]
+// CORS origins from environment variables (more secure and flexible)
+const allowedOrigins = isProduction
+  ? (process.env.ALLOWED_ORIGINS || 'https://kzstore.com,https://www.kzstore.com,https://kzstore.ao,https://www.kzstore.ao,https://kzstore-341392738431.us-central1.run.app').split(',')
   : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173'];
 
 // CORS deve vir antes de tudo!
@@ -133,12 +187,15 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true 
+  credentials: true
 }));
 
 // ============================================
 // BASIC MIDDLEWARE
 // ============================================
+
+// Compression middleware (compacta responses para melhor performance)
+app.use(compression());
 
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' })); // Limitar tamanho do body
@@ -148,11 +205,31 @@ app.use('/uploads', express.static(uploadsDir)); // Servir arquivos estáticos
 // SECURITY MIDDLEWARE
 // ============================================
 
-// Helmet - Security headers
+// Helmet - Security headers (PRODUCTION-READY)
 app.use(helmet({
-  contentSecurityPolicy: false, // Desabilitar CSP temporariamente para desenvolvimento
+  contentSecurityPolicy: isProduction ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      connectSrc: ["'self'", "https://www.google-analytics.com", "https://storage.googleapis.com"],
+      frameSrc: ["'self'", "https://www.google.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  } : false,
   crossOriginEmbedderPolicy: false,
-  hsts: false // Desabilitar HSTS temporariamente até SSL provisionar
+  hsts: isProduction ? {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  } : false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  noSniff: true,
+  frameguard: { action: 'deny' },
+  xssFilter: true
 }));
 
 // Rate Limiting - Prevenir ataques de força bruta
@@ -351,23 +428,42 @@ app.post('/api/upload-multiple', upload.array('images', 5), async (req, res) => 
 // ============================================
 
 // GET /api/products - Buscar todos os produtos
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', cacheMiddleware(300), paginationMiddleware, async (req, res) => {
   try {
-    const { pre_order } = req.query;
-    
+    const { pre_order, category_id, search } = req.query;
+    const { page, limit, sort, order } = getPaginationParams(req.query);
+
     const where: any = { ativo: true };
-    
-    // Filtrar por pré-venda se solicitado
+
+    // Filtrar por pré-venda
     if (pre_order === 'true') {
       where.is_pre_order = true;
     } else if (pre_order === 'false') {
-      // Excluir produtos de pré-venda (buscar apenas is_pre_order = false)
       where.is_pre_order = false;
     }
-    
+
+    // Filtrar por categoria
+    if (category_id) {
+      where.category_id = category_id as string;
+    }
+
+    // Busca por nome
+    if (search && typeof search === 'string') {
+      where.nome = {
+        contains: search,
+        mode: 'insensitive'
+      };
+    }
+
+    // Contar total de produtos
+    const total = await prisma.product.count({ where });
+
+    // Buscar produtos com paginação
     const products = await prisma.product.findMany({
       where,
-      orderBy: { created_at: 'desc' },
+      skip: getOffset(page, limit),
+      take: limit,
+      orderBy: { [sort]: order },
       include: {
         flashSales: {
           where: {
@@ -378,11 +474,14 @@ app.get('/api/products', async (req, res) => {
         },
       },
     });
-    
+
     // Converter Decimals para numbers
     const productsConverted = convertDecimalsToNumbers(products);
-    
-    res.json({ products: productsConverted });
+
+    // Resposta paginada
+    const response = createPaginatedResponse(productsConverted, total, page, limit);
+
+    res.json(response);
   } catch (error: any) {
     console.error('Error fetching products:', error);
     res.status(500).json({ error: error.message });
@@ -425,12 +524,20 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // POST /api/products - Criar produto (PROTEGIDO - Apenas Admin)
-app.post('/api/products', requireAdmin, async (req, res) => {
+// POST /api/products - Criar produto (PROTEGIDO - Apenas Admin)
+app.post('/api/products', requireAdmin, validate(schemas.createProductSchema), async (req, res) => {
   try {
     const product = await prisma.product.create({
       data: req.body,
     });
     const productConverted = convertDecimalsToNumbers(product);
+
+    // Invalidar cache de produtos
+    await invalidateCache('cache:/api/products*');
+
+    // Notify feed update
+    await notifyFeedUpdate('create', product.id);
+
     res.json({ product: productConverted });
   } catch (error: any) {
     console.error('Error creating product:', error);
@@ -439,7 +546,7 @@ app.post('/api/products', requireAdmin, async (req, res) => {
 });
 
 // PUT /api/products/:id - Atualizar produto (PROTEGIDO - Apenas Admin)
-app.put('/api/products/:id', requireAdmin, async (req, res) => {
+app.put('/api/products/:id', requireAdmin, validate(schemas.updateProductSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const product = await prisma.product.update({
@@ -447,6 +554,13 @@ app.put('/api/products/:id', requireAdmin, async (req, res) => {
       data: req.body,
     });
     const productConverted = convertDecimalsToNumbers(product);
+
+    // Invalidar cache de produtos
+    await invalidateCache('cache:/api/products*');
+
+    // Notify feed update
+    await notifyFeedUpdate('update', product.id);
+
     res.json({ product: productConverted });
   } catch (error: any) {
     console.error('Error updating product:', error);
@@ -461,6 +575,13 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     await prisma.product.delete({
       where: { id },
     });
+
+    // Invalidar cache de produtos
+    await invalidateCache('cache:/api/products*');
+
+    // Notify feed update
+    await notifyFeedUpdate('delete', id);
+
     res.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting product:', error);
@@ -535,53 +656,54 @@ app.post('/api/products/initialize', requireAdmin, async (req, res) => {
 // ============================================
 
 // GET /api/orders - Buscar pedidos (filtrados por usuário ou todos para admin)
-app.get('/api/orders', authMiddleware, async (req: any, res) => {
+app.get('/api/orders', authMiddleware, paginationMiddleware, async (req: any, res) => {
   try {
-    const { user_id, user_email } = req.query;
+    const { user_id, user_email, status, payment_status } = req.query;
+    const { page, limit, sort, order } = getPaginationParams(req.query);
     const reqUserId = req.userId as string;
     const reqUserRole = (req.userRole || 'customer') as string;
 
-    debugLog('📋 [GET /api/orders] Query params:', { user_id, user_email, reqUserId, reqUserRole });
+    debugLog('📋 [GET /api/orders] Query params:', { user_id, user_email, reqUserId, reqUserRole, page, limit });
+
+    const where: any = {};
 
     // ADMIN: permissões especiais
     if (reqUserRole === 'admin' || reqUserRole === 'superadmin') {
       if (user_id) {
-        debugLog('📋 [GET /api/orders] Admin buscando pedidos para user_id:', user_id);
-        const orders = await prisma.order.findMany({
-          where: { user_id: user_id as string },
-          orderBy: { created_at: 'desc' },
-        });
-        const ordersConverted = convertDecimalsToNumbers(orders).map((order: any) => ({
-          ...order,
-          items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
-        }));
-        return res.json({ orders: ordersConverted });
+        where.user_id = user_id as string;
       }
       if (user_email) {
-        debugLog('📋 [GET /api/orders] Admin buscando pedidos por email:', user_email);
-        const orders = await prisma.order.findMany({ where: { user_email: user_email as string }, orderBy: { created_at: 'desc' } });
-        const ordersConverted = convertDecimalsToNumbers(orders).map((order: any) => ({
-          ...order,
-          items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
-        }));
-        return res.json({ orders: ordersConverted });
+        where.user_email = user_email as string;
       }
-      const orders = await prisma.order.findMany({ orderBy: { created_at: 'desc' } });
-      const ordersConverted = convertDecimalsToNumbers(orders).map((order: any) => ({
-        ...order,
-        items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
-      }));
-      return res.json({ orders: ordersConverted });
+      if (status) {
+        where.status = status as string;
+      }
+      if (payment_status) {
+        where.payment_status = payment_status as string;
+      }
+    } else {
+      // NON-ADMIN: retornar somente pedidos do usuário autenticado
+      where.user_id = reqUserId;
     }
 
-    // NON-ADMIN: retornar somente pedidos do usuário autenticado
-    debugLog('[GET /api/orders] User fetching own orders:', reqUserId);
-    const orders = await prisma.order.findMany({ where: { user_id: reqUserId }, orderBy: { created_at: 'desc' } });
+    // Contar total
+    const total = await prisma.order.count({ where });
+
+    // Buscar com paginação
+    const orders = await prisma.order.findMany({
+      where,
+      skip: getOffset(page, limit),
+      take: limit,
+      orderBy: { [sort]: order },
+    });
+
     const ordersConverted = convertDecimalsToNumbers(orders).map((order: any) => ({
       ...order,
       items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
     }));
-    return res.json({ orders: ordersConverted });
+
+    const response = createPaginatedResponse(ordersConverted, total, page, limit);
+    return res.json(response);
   } catch (error: any) {
     console.error('❌ Error fetching orders:', error);
     res.status(500).json({ error: error.message });
@@ -651,7 +773,7 @@ app.get('/api/orders/:id', authMiddleware, async (req: any, res) => {
 });
 
 // POST /api/orders - Criar pedido
-app.post('/api/orders', authMiddleware, async (req: any, res) => {
+app.post('/api/orders', authMiddleware, validate(schemas.createOrderSchema), async (req: any, res) => {
   try {
     // Forçar user_id correto se autenticado
     let data = req.body;
@@ -1796,10 +1918,15 @@ app.get('/api/ads', async (req, res) => {
       where,
       orderBy: { criado_em: 'desc' },
     });
-    
+
     console.log(`📢 [Ads API] Found ${ads.length} ads`);
-    
-    const converted = convertDecimalsToNumbers(ads);
+
+    // Mapear imagem_url_v2 → imagem_url para compatibilidade com frontend
+    const converted = convertDecimalsToNumbers(ads).map((ad: any) => ({
+      ...ad,
+      imagem_url: ad.imagem_url_v2,
+    }));
+
     res.json(converted);
   } catch (error: any) {
     console.error('Error fetching ads:', error);
@@ -1816,7 +1943,7 @@ app.post('/api/ads', async (req, res) => {
       data: {
         titulo: data.titulo,
         descricao: data.descricao,
-        imagem_url: data.imagem_url,
+        imagem_url_v2: data.imagem_url,
         link_url: data.link_url,
         posicao: data.posicao,
         tipo: data.tipo || 'banner',
@@ -1842,11 +1969,52 @@ app.put('/api/ads/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    console.log('📝 [PUT /api/ads/:id] Atualizando anúncio:', id);
+    console.log('📝 [PUT /api/ads/:id] URL da imagem length:', updates.imagem_url?.length || 0);
+
+    // Usar raw SQL para bypass validação do Prisma (temporário até cache limpar)
+    if (updates.imagem_url) {
+      await prisma.$executeRawUnsafe(`
+        UPDATE advertisements
+        SET imagem_url_v2 = ?,
+            titulo = ?,
+            descricao = ?,
+            link_url = ?,
+            posicao = ?,
+            tipo = ?,
+            ativo = ?,
+            data_inicio = ?,
+            data_fim = ?,
+            atualizado_em = NOW()
+        WHERE id = ?
+      `,
+        updates.imagem_url,
+        updates.titulo || 'Anúncio',
+        updates.descricao || null,
+        updates.link_url || null,
+        updates.posicao || 'home-hero-banner',
+        updates.tipo || 'banner',
+        updates.ativo !== undefined ? (updates.ativo ? 1 : 0) : 1,
+        updates.data_inicio ? new Date(updates.data_inicio) : null,
+        updates.data_fim ? new Date(updates.data_fim) : null,
+        id
+      );
+      
+      // Buscar registro atualizado
+      const updatedAd = await prisma.advertisement.findUnique({
+        where: { id }
+      });
+
+      const converted = convertDecimalsToNumbers(updatedAd);
+      // Mapear imagem_url_v2 → imagem_url para compatibilidade com frontend
+      return res.json({ ...converted, imagem_url: converted.imagem_url_v2 });
+    }
     
+    // Se não tem imagem_url, usar método normal
     const data: any = {};
     if (updates.titulo) data.titulo = updates.titulo;
     if (updates.descricao !== undefined) data.descricao = updates.descricao;
-    if (updates.imagem_url) data.imagem_url = updates.imagem_url;
     if (updates.link_url !== undefined) data.link_url = updates.link_url;
     if (updates.posicao) data.posicao = updates.posicao;
     if (updates.tipo) data.tipo = updates.tipo;
@@ -1858,9 +2026,10 @@ app.put('/api/ads/:id', async (req, res) => {
       where: { id },
       data,
     });
-    
+
     const converted = convertDecimalsToNumbers(updatedAd);
-    res.json(converted);
+    // Mapear imagem_url_v2 → imagem_url para compatibilidade com frontend
+    res.json({ ...converted, imagem_url: converted.imagem_url_v2 });
   } catch (error: any) {
     console.error('Error updating ad:', error);
     res.status(500).json({ error: error.message });
@@ -2846,7 +3015,7 @@ app.delete('/api/favorites/:productId', authMiddleware, async (req: any, res) =>
 // ============================================
 
 // GET /api/categories - Buscar todas as categorias
-app.get('/api/categories', async (req, res) => {
+app.get('/api/categories', cacheMiddleware(1800), async (req, res) => {
   try {
     const categories = await prisma.category.findMany({
       where: { active: true },
@@ -2889,7 +3058,7 @@ app.get('/api/categories/:id', async (req, res) => {
 app.post('/api/categories', async (req, res) => {
   try {
     const categoryData = req.body;
-    
+
     const newCategory = await prisma.category.create({
       data: {
         name: categoryData.name,
@@ -2902,7 +3071,10 @@ app.post('/api/categories', async (req, res) => {
         active: categoryData.active !== false,
       },
     });
-    
+
+    // Invalidar cache de categorias
+    await invalidateCache('cache:/api/categories*');
+
     const converted = convertDecimalsToNumbers(newCategory);
     res.status(201).json(converted);
   } catch (error: any) {
@@ -3392,6 +3564,64 @@ app.patch('/api/team/:id/last-login', async (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Migration endpoint (temporário para debug)
+app.post('/api/admin/run-migration', requireAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Executando migration manual de advertisements...');
+    
+    // Verificar estado atual
+    const before = await prisma.$queryRawUnsafe(`
+      SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'advertisements' 
+      AND COLUMN_NAME = 'imagem_url'
+    `) as any[];
+    
+    console.log('📊 Antes:', before);
+    
+    // Aplicar migration
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE advertisements 
+      MODIFY COLUMN imagem_url TEXT NOT NULL
+    `);
+    
+    // Verificar depois
+    const after = await prisma.$queryRawUnsafe(`
+      SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH 
+      FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE TABLE_NAME = 'advertisements' 
+      AND COLUMN_NAME = 'imagem_url'
+    `) as any[];
+    
+    console.log('📊 Depois:', after);
+    
+    // Converter BigInt para string antes de enviar JSON
+    const beforeSafe = before.map(row => ({
+      ...row,
+      CHARACTER_MAXIMUM_LENGTH: row.CHARACTER_MAXIMUM_LENGTH ? String(row.CHARACTER_MAXIMUM_LENGTH) : null
+    }));
+    
+    const afterSafe = after.map(row => ({
+      ...row,
+      CHARACTER_MAXIMUM_LENGTH: row.CHARACTER_MAXIMUM_LENGTH ? String(row.CHARACTER_MAXIMUM_LENGTH) : null
+    }));
+    
+    res.json({ 
+      success: true, 
+      before: beforeSafe, 
+      after: afterSafe,
+      message: 'Migration aplicada com sucesso' 
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Erro na migration:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
 });
 
 // ============================================
@@ -3929,9 +4159,13 @@ app.use(express.static(buildPath, {
   setHeaders: (res, filePath) => {
     // Desabilitar cache completamente para index.html
     if (filePath.endsWith('index.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      // Adicionar timestamp no ETag para forçar reload
+      const buildTime = process.env.BUILD_TIME || Date.now().toString();
+      res.setHeader('ETag', `"${buildTime}"`);
     }
   }
 }));
@@ -4052,17 +4286,764 @@ app.patch('/api/products/fix-shipping', requireAdmin, async (req, res) => {
   }
 });
 
+// ============================================================================
+// PRODUCT FEEDS - WhatsApp, Facebook, Google (BEFORE SPA FALLBACK)
+// ============================================================================
+
+/**
+ * Helper: Notify feed update (for webhooks)
+ */
+async function notifyFeedUpdate(action: 'create' | 'update' | 'delete', productId: string) {
+  try {
+    console.log(`📢 Feed update notification: ${action} product ${productId}`);
+    debugLog(`Feed notification: ${action} - ${productId}`);
+  } catch (error) {
+    console.error('Error notifying feed update:', error);
+  }
+}
+
+/**
+ * Helper: Convert product to feed format
+ */
+function productToFeedItem(product: any, baseUrl: string) {
+  const slug = product.nome
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+  
+  const productUrl = `${baseUrl}/produto/${slug}-${product.id}`;
+  
+  let availability = 'out of stock';
+  if (product.is_pre_order) {
+    availability = 'preorder';
+  } else if (product.estoque > 0) {
+    availability = 'in stock';
+  }
+  
+  const conditionMap: any = {
+    'Novo': 'new',
+    'Usado': 'used',
+    'Refurbished': 'refurbished',
+    'Recondicionado': 'refurbished'
+  };
+  const condition = conditionMap[product.condicao || 'Novo'] || 'new';
+  
+  return {
+    id: product.id,
+    title: product.nome,
+    description: product.descricao || product.nome,
+    link: productUrl,
+    image_link: product.imagem_url || '',
+    additional_image_links: Array.isArray(product.imagens) ? product.imagens : [],
+    price: `${product.preco_aoa.toFixed(2)} AOA`,
+    availability,
+    condition,
+    brand: product.marca || 'KZStore',
+    gtin: product.codigo_barras || '',
+    mpn: product.sku || product.id,
+    google_product_category: mapCategoryToGoogle(product.categoria),
+    product_type: `${product.categoria}${product.subcategoria ? ' > ' + product.subcategoria : ''}`,
+    custom_label_0: product.categoria,
+    custom_label_1: product.subcategoria || '',
+    inventory_count: product.estoque,
+    sale_price: product.preco_aoa < (product.preco_usd || 999999) ? `${product.preco_aoa.toFixed(2)} AOA` : undefined,
+  };
+}
+
+/**
+ * Helper: Map category to Google Product Category
+ */
+function mapCategoryToGoogle(category: string): string {
+  const categoryMap: any = {
+    'Componentes PC': '1295',
+    'Hardware': '1295',
+    'Software': '4020',
+    'Servidores': '1294',
+    'Rede': '317',
+    'Armazenamento': '1294',
+    'Memória RAM': '1295',
+    'SSD': '4745',
+    'Mini PC': '325',
+    'Laptops': '298',
+    'Monitores': '356',
+    'Periféricos': '275',
+    'Áudio': '249',
+    'Gaming': '1239',
+    'Telefones': '267',
+    'Tablets': '4745',
+    'Smartwatches': '4612',
+    'Eletrônicos': '222',
+  };
+  return categoryMap[category] || '222';
+}
+
+/**
+ * Helper: Escape XML special characters
+ */
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  return unsafe
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * GET /feed.json - JSON feed for WhatsApp Business & Facebook
+ */
+app.get('/feed.json', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { ativo: true },
+      orderBy: { created_at: 'desc' }
+    });
+    
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const feedItems = products.map(p => productToFeedItem(p, baseUrl));
+    
+    res.json({
+      title: 'KZStore - Tech & Electronics',
+      link: baseUrl,
+      description: 'A maior loja online de produtos eletrônicos em Angola',
+      updated: new Date().toISOString(),
+      products: feedItems
+    });
+  } catch (error: any) {
+    console.error('Error generating JSON feed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /feed.xml - Facebook Commerce Manager feed
+ */
+app.get('/feed.xml', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { ativo: true },
+      orderBy: { created_at: 'desc' }
+    });
+    
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">\n';
+    xml += '  <channel>\n';
+    xml += '    <title>KZStore - Tech &amp; Electronics</title>\n';
+    xml += `    <link>${baseUrl}</link>\n`;
+    xml += '    <description>A maior loja online de produtos eletrônicos em Angola</description>\n';
+    
+    for (const product of products) {
+      const item = productToFeedItem(product, baseUrl);
+      
+      xml += '    <item>\n';
+      xml += `      <g:id>${escapeXml(item.id)}</g:id>\n`;
+      xml += `      <g:title>${escapeXml(item.title)}</g:title>\n`;
+      xml += `      <g:description>${escapeXml(item.description)}</g:description>\n`;
+      xml += `      <g:link>${escapeXml(item.link)}</g:link>\n`;
+      xml += `      <g:image_link>${escapeXml(item.image_link)}</g:image_link>\n`;
+      
+      if (item.additional_image_links && item.additional_image_links.length > 0) {
+        item.additional_image_links.slice(0, 10).forEach((img: string) => {
+          xml += `      <g:additional_image_link>${escapeXml(img)}</g:additional_image_link>\n`;
+        });
+      }
+      
+      xml += `      <g:price>${escapeXml(item.price)}</g:price>\n`;
+      xml += `      <g:availability>${escapeXml(item.availability)}</g:availability>\n`;
+      xml += `      <g:condition>${escapeXml(item.condition)}</g:condition>\n`;
+      xml += `      <g:brand>${escapeXml(item.brand)}</g:brand>\n`;
+      
+      if (item.gtin) {
+        xml += `      <g:gtin>${escapeXml(item.gtin)}</g:gtin>\n`;
+      }
+      
+      xml += `      <g:mpn>${escapeXml(item.mpn)}</g:mpn>\n`;
+      xml += `      <g:google_product_category>${item.google_product_category}</g:google_product_category>\n`;
+      xml += `      <g:product_type>${escapeXml(item.product_type)}</g:product_type>\n`;
+      
+      xml += '    </item>\n';
+    }
+    
+    xml += '  </channel>\n';
+    xml += '</rss>';
+    
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error: any) {
+    console.error('Error generating XML feed:', error);
+    res.status(500).send(`<?xml version="1.0"?><error>${error.message}</error>`);
+  }
+});
+
+/**
+ * GET /google-feed.xml - Google Merchant Center feed
+ */
+app.get('/google-feed.xml', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { ativo: true },
+      orderBy: { created_at: 'desc' }
+    });
+    
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:g="http://base.google.com/ns/1.0">\n';
+    xml += '  <title>KZStore Product Feed</title>\n';
+    xml += `  <link rel="self" href="${baseUrl}/google-feed.xml"/>\n`;
+    xml += `  <updated>${new Date().toISOString()}</updated>\n`;
+    
+    for (const product of products) {
+      const item = productToFeedItem(product, baseUrl);
+      
+      xml += '  <entry>\n';
+      xml += `    <g:id>${escapeXml(item.id)}</g:id>\n`;
+      xml += `    <g:title>${escapeXml(item.title.substring(0, 150))}</g:title>\n`;
+      xml += `    <g:description>${escapeXml(item.description.substring(0, 5000))}</g:description>\n`;
+      xml += `    <g:link>${escapeXml(item.link)}</g:link>\n`;
+      xml += `    <g:image_link>${escapeXml(item.image_link)}</g:image_link>\n`;
+      
+      if (item.additional_image_links && item.additional_image_links.length > 0) {
+        item.additional_image_links.slice(0, 10).forEach((img: string) => {
+          xml += `    <g:additional_image_link>${escapeXml(img)}</g:additional_image_link>\n`;
+        });
+      }
+      
+      xml += `    <g:price>${escapeXml(item.price)}</g:price>\n`;
+      xml += `    <g:availability>${escapeXml(item.availability)}</g:availability>\n`;
+      xml += `    <g:condition>${escapeXml(item.condition)}</g:condition>\n`;
+      xml += `    <g:brand>${escapeXml(item.brand)}</g:brand>\n`;
+      
+      // Google não aceita GTINs começando com 2, 02, 04 (restricted range)
+      // Omitir GTIN e usar identifier_exists=false para produtos sem GTIN válido
+      const hasValidGtin = item.gtin && !item.gtin.startsWith('2') && !item.gtin.startsWith('02') && !item.gtin.startsWith('04');
+      
+      if (hasValidGtin) {
+        xml += `    <g:gtin>${escapeXml(item.gtin)}</g:gtin>\n`;
+      } else {
+        xml += `    <g:identifier_exists>false</g:identifier_exists>\n`;
+      }
+      
+      xml += `    <g:mpn>${escapeXml(item.mpn)}</g:mpn>\n`;
+      xml += `    <g:google_product_category>${item.google_product_category}</g:google_product_category>\n`;
+      xml += `    <g:product_type>${escapeXml(item.product_type)}</g:product_type>\n`;
+      xml += `    <g:custom_label_0>${escapeXml(item.custom_label_0)}</g:custom_label_0>\n`;
+      
+      if (item.custom_label_1) {
+        xml += `    <g:custom_label_1>${escapeXml(item.custom_label_1)}</g:custom_label_1>\n`;
+      }
+      
+      xml += '  </entry>\n';
+    }
+    
+    xml += '</feed>';
+    
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error: any) {
+    console.error('Error generating Google feed:', error);
+    res.status(500).send(`<?xml version="1.0"?><error>${error.message}</error>`);
+  }
+});
+
+/**
+ * POST /api/feeds/regenerate - Trigger feed regeneration (for webhooks/cron)
+ */
+app.post('/api/feeds/regenerate', requireAdmin, async (req, res) => {
+  try {
+    console.log('🔄 Feed regeneration triggered');
+    const productCount = await prisma.product.count({ where: { ativo: true } });
+    
+    res.json({
+      success: true,
+      message: 'Feeds regenerated successfully',
+      products: productCount,
+      feeds: ['/feed.json', '/feed.xml', '/google-feed.xml'],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error regenerating feeds:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END PRODUCT FEEDS
+// ============================================================================
+
+// ============================================================================
+// ANALYTICS ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/analytics/clv - Calculate Customer Lifetime Value
+ * Query params: startDate, endDate, customerId (optional)
+ */
+app.get('/api/analytics/clv', requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, customerId } = req.query;
+
+    const params: any = {};
+    if (startDate) params.startDate = new Date(startDate as string);
+    if (endDate) params.endDate = new Date(endDate as string);
+    if (customerId) params.customerId = customerId as string;
+
+    const result = await calculateCLV(params);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [ANALYTICS] Error calculating CLV:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/analytics/conversion - Calculate conversion rate
+ * Query params: startDate, endDate (optional)
+ */
+app.get('/api/analytics/conversion', requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const params: any = {};
+    if (startDate) params.startDate = new Date(startDate as string);
+    if (endDate) params.endDate = new Date(endDate as string);
+
+    const result = await calculateConversionRate(params);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [ANALYTICS] Error calculating conversion:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/analytics/revenue - Calculate revenue reports
+ * Query params: startDate, endDate, groupBy (day|week|month)
+ */
+app.get('/api/analytics/revenue', requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, groupBy } = req.query;
+
+    const params: any = {};
+    if (startDate) params.startDate = new Date(startDate as string);
+    if (endDate) params.endDate = new Date(endDate as string);
+    if (groupBy) params.groupBy = groupBy as 'day' | 'week' | 'month';
+
+    const result = await calculateRevenue(params);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [ANALYTICS] Error calculating revenue:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/analytics/funnel - Analyze sales funnel
+ * Query params: startDate, endDate (optional)
+ */
+app.get('/api/analytics/funnel', requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const params: any = {};
+    if (startDate) params.startDate = new Date(startDate as string);
+    if (endDate) params.endDate = new Date(endDate as string);
+
+    const result = await analyzeSalesFunnel(params);
+
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [ANALYTICS] Error analyzing funnel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/analytics/metrics/history - Get historical metrics
+ * Query params: metricType (required), startDate, endDate, limit
+ */
+app.get('/api/analytics/metrics/history', requireAdmin, async (req, res) => {
+  try {
+    const { metricType, startDate, endDate, limit } = req.query;
+
+    if (!metricType) {
+      return res.status(400).json({ error: 'metricType is required' });
+    }
+
+    const params: any = {
+      metricType: metricType as string
+    };
+
+    if (startDate) params.startDate = new Date(startDate as string);
+    if (endDate) params.endDate = new Date(endDate as string);
+    if (limit) params.limit = parseInt(limit as string);
+
+    const result = await getHistoricalMetrics(params);
+
+    res.json({
+      success: true,
+      data: result,
+      count: result.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [ANALYTICS] Error fetching historical metrics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END ANALYTICS ENDPOINTS
+// ============================================================================
+
+// ============================================================================
+// BULK OPERATIONS ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/products/import - Import products from CSV or Excel file
+ * Requires file upload via multipart/form-data
+ * Field name: 'file'
+ */
+app.post('/api/products/import', requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+
+    let fileType: 'csv' | 'xlsx';
+    if (fileExtension === '.csv') {
+      fileType = 'csv';
+    } else if (fileExtension === '.xlsx' || fileExtension === '.xls') {
+      fileType = 'xlsx';
+    } else {
+      // Cleanup uploaded file
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: 'Invalid file type. Only CSV and Excel files are supported.' });
+    }
+
+    console.log(`📥 [BULK] Starting import from ${fileType.toUpperCase()}: ${req.file.originalname}`);
+
+    const result = await importProductsFromFile(filePath, fileType);
+
+    // Cleanup uploaded file
+    fs.unlinkSync(filePath);
+
+    // Invalidate cache
+    await invalidateCache('cache:/api/products*');
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Import completed: ${result.success} succeeded, ${result.failed} failed`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [BULK] Error importing products:', error);
+
+    // Cleanup file if exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/products/export - Export products to CSV, Excel, or PDF
+ * Query params: format (csv|xlsx|pdf), filters (optional)
+ */
+app.get('/api/products/export', requireAdmin, async (req, res) => {
+  try {
+    const { format, category, ativo, destaque } = req.query;
+
+    if (!format || !['csv', 'xlsx', 'pdf'].includes(format as string)) {
+      return res.status(400).json({ error: 'Invalid format. Must be csv, xlsx, or pdf' });
+    }
+
+    // Build filters
+    const filters: any = {};
+    if (category) filters.categoria = category;
+    if (ativo !== undefined) filters.ativo = ativo === 'true';
+    if (destaque !== undefined) filters.destaque = destaque === 'true';
+
+    console.log(`📤 [BULK] Exporting products to ${(format as string).toUpperCase()}...`);
+
+    let filePath: string;
+
+    switch (format) {
+      case 'csv':
+        filePath = await exportProductsToCSV(filters);
+        break;
+      case 'xlsx':
+        filePath = await exportProductsToExcel(filters);
+        break;
+      case 'pdf':
+        filePath = await exportProductsToPDF(filters);
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid format' });
+    }
+
+    const fileName = path.basename(filePath);
+
+    // Send file
+    res.download(filePath, fileName, (err) => {
+      if (err) {
+        console.error('❌ [BULK] Error sending file:', err);
+      }
+
+      // Cleanup file after sending
+      setTimeout(() => {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }, 5000);
+    });
+  } catch (error: any) {
+    console.error('❌ [BULK] Error exporting products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/products/bulk-update - Update multiple products at once
+ * Body: { productIds: string[], updates: object }
+ */
+app.post('/api/products/bulk-update', requireAdmin, async (req, res) => {
+  try {
+    const { productIds, updates } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ error: 'productIds array is required and must not be empty' });
+    }
+
+    if (!updates || typeof updates !== 'object') {
+      return res.status(400).json({ error: 'updates object is required' });
+    }
+
+    console.log(`📝 [BULK] Updating ${productIds.length} products...`);
+
+    const result = await bulkUpdateProducts(productIds, updates);
+
+    // Invalidate cache
+    await invalidateCache('cache:/api/products*');
+
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.updated} products updated successfully`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [BULK] Error in bulk update:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END BULK OPERATIONS ENDPOINTS
+// ============================================================================
+
+// ============================================================================
+// RECOMMENDATION ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/recommendations/product/:productId - Get product-based recommendations
+ * "Customers who bought this also bought..."
+ * Query params: limit (default 5)
+ */
+app.get('/api/recommendations/product/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+
+    const recommendations = await getProductRecommendations(productId, limit);
+
+    res.json({
+      success: true,
+      data: convertDecimalsToNumbers(recommendations),
+      count: recommendations.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [RECOMMENDATIONS] Error getting product recommendations:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/recommendations/user/:userId - Get personalized recommendations
+ * Based on user purchase history
+ * Query params: limit (default 10)
+ */
+app.get('/api/recommendations/user/:userId', authMiddleware, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+    // Users can only get their own recommendations (unless admin)
+    if (req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const recommendations = await getPersonalizedRecommendations(userId, limit);
+
+    res.json({
+      success: true,
+      data: convertDecimalsToNumbers(recommendations),
+      count: recommendations.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [RECOMMENDATIONS] Error getting personalized recommendations:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/recommendations/popular - Get popular products
+ * Most sold in last 30 days
+ * Query params: limit (default 10)
+ */
+app.get('/api/recommendations/popular', async (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+    const products = await getPopularProducts(limit);
+
+    res.json({
+      success: true,
+      data: convertDecimalsToNumbers(products),
+      count: products.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [RECOMMENDATIONS] Error getting popular products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/recommendations/related/:productId - Get related products
+ * By category and subcategory
+ * Query params: limit (default 4)
+ */
+app.get('/api/recommendations/related/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 4;
+
+    const products = await getRelatedProducts(productId, limit);
+
+    res.json({
+      success: true,
+      data: convertDecimalsToNumbers(products),
+      count: products.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [RECOMMENDATIONS] Error getting related products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/recommendations/trending - Get trending products
+ * Featured and new products
+ * Query params: limit (default 10)
+ */
+app.get('/api/recommendations/trending', async (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+    const products = await getTrendingProducts(limit);
+
+    res.json({
+      success: true,
+      data: convertDecimalsToNumbers(products),
+      count: products.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [RECOMMENDATIONS] Error getting trending products:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END RECOMMENDATION ENDPOINTS
+// ============================================================================
+
 // SPA fallback - serve index.html for any route that doesn't match API or static files
 app.use((req, res, next) => {
   // Don't handle API routes
   if (req.path.startsWith('/api')) {
     return next();
   }
-  // Serve index.html sem cache
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  
+  // Forçar revalidação completa do index.html
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  
+  // ETag dinâmico baseado no timestamp do deploy
+  const buildTime = process.env.BUILD_TIME || Date.now().toString();
+  res.setHeader('ETag', `"${buildTime}"`);
+  
+  // Se o cliente enviou If-None-Match, sempre retornar 200 (forçar reload)
+  if (req.headers['if-none-match']) {
+    // Ignorar ETag do cliente e sempre enviar conteúdo novo
+  }
+  
   res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// ============================================
+// ERROR HANDLING - Sentry (MUST BE LAST MIDDLEWARE!)
+// ============================================
+app.use(sentryErrorHandler);
+
+// Global error handler (after Sentry)
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('❌ Unhandled error:', err);
+
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
 });
 
 // Start server
@@ -4092,6 +5073,24 @@ app.listen(PORT, '0.0.0.0', async () => {
         console.log('ℹ️ Coluna icon já existe em subcategories');
       } else {
         console.warn('⚠️ Erro ao aplicar migration (pode ser ignorado se coluna já existe):', migrationError.message);
+      }
+    }
+    
+    // Aplicar migration: renomear imagem_url para imagem_url_v2 (forçar metadata refresh)
+    try {
+      console.log('🔧 Verificando schema de advertisements...');
+      
+      // Tentar renomear coluna
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE advertisements 
+        CHANGE COLUMN imagem_url imagem_url_v2 TEXT NOT NULL
+      `);
+      console.log('✅ Coluna renomeada para imagem_url_v2 (TEXT)!');
+    } catch (migrationError: any) {
+      if (migrationError.message?.includes("Unknown column 'imagem_url'")) {
+        console.log('ℹ️ Coluna imagem_url_v2 já existe (migração já aplicada)');
+      } else {
+        console.warn('⚠️ Erro ao aplicar migration de advertisements:', migrationError.message);
       }
     }
   } catch (error) {
@@ -4514,6 +5513,175 @@ app.get('/api/webhooks/events', requireAdmin, async (req, res) => {
 
 // ============================================================================
 // END BUILD 131
+// ============================================================================
+
+// ============================================================================
+// PHASE 4: CRON JOBS - Automated Tasks
+// ============================================================================
+
+/**
+ * CRON JOB 1: Check low stock alerts
+ * Frequency: Every 30 minutes (*/30 * * * *)
+ * Trigger with Google Cloud Scheduler
+ */
+app.post('/api/cron/low-stock-alerts', async (req, res) => {
+  try {
+    console.log('📦 [CRON] Iniciando verificação de estoque baixo...');
+    const result = await checkLowStockAlerts();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro na verificação de estoque:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB 2: Process abandoned carts
+ * Frequency: Every hour (0 * * * *)
+ */
+app.post('/api/cron/abandoned-carts', async (req, res) => {
+  try {
+    console.log('🛒 [CRON] Processando carrinhos abandonados...');
+    const result = await processAbandonedCarts();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro no processamento de carrinhos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB 3: Calculate daily metrics
+ * Frequency: Daily at 23:59 (59 23 * * *)
+ */
+app.post('/api/cron/daily-metrics', async (req, res) => {
+  try {
+    console.log('📊 [CRON] Calculando métricas diárias...');
+    const result = await calculateDailyMetrics();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro no cálculo de métricas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB 4: Cleanup old carts
+ * Frequency: Daily at 02:00 (0 2 * * *)
+ */
+app.post('/api/cron/cleanup-carts', async (req, res) => {
+  try {
+    console.log('🧹 [CRON] Limpando carrinhos antigos...');
+    const result = await cleanupOldCarts();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro na limpeza de carrinhos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB 5: Update featured products
+ * Frequency: Weekly on Sunday at 00:00 (0 0 * * 0)
+ */
+app.post('/api/cron/update-featured', async (req, res) => {
+  try {
+    console.log('⭐ [CRON] Atualizando produtos em destaque...');
+    const result = await updateFeaturedProducts();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro ao atualizar produtos em destaque:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB 6: Send weekly report
+ * Frequency: Weekly on Monday at 09:00 (0 9 * * 1)
+ */
+app.post('/api/cron/weekly-report', async (req, res) => {
+  try {
+    console.log('📧 [CRON] Enviando relatório semanal...');
+    const result = await sendWeeklyReport();
+    res.json({
+      success: true,
+      data: result,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro ao enviar relatório:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CRON JOB MASTER: Run all cron jobs manually (Admin only)
+ * For testing purposes
+ */
+app.post('/api/cron/run-all', requireAdmin, async (req, res) => {
+  try {
+    console.log('🤖 [CRON] Executando TODOS os cron jobs manualmente...');
+
+    const results = await Promise.allSettled([
+      checkLowStockAlerts(),
+      processAbandonedCarts(),
+      calculateDailyMetrics(),
+      cleanupOldCarts(),
+      updateFeaturedProducts(),
+      sendWeeklyReport()
+    ]);
+
+    const summary = results.map((result, index) => {
+      const jobNames = [
+        'Low Stock Alerts',
+        'Abandoned Carts',
+        'Daily Metrics',
+        'Cleanup Carts',
+        'Update Featured',
+        'Weekly Report'
+      ];
+
+      return {
+        job: jobNames[index],
+        status: result.status,
+        data: result.status === 'fulfilled' ? result.value : null,
+        error: result.status === 'rejected' ? result.reason.message : null
+      };
+    });
+
+    res.json({
+      success: true,
+      data: summary,
+      timestamp: new Date()
+    });
+  } catch (error: any) {
+    console.error('❌ [CRON] Erro ao executar todos os cron jobs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// END PHASE 4
 // ============================================================================
 
 // Graceful shutdown

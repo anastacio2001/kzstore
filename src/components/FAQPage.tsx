@@ -106,9 +106,9 @@ export function FAQPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section - Mobile Optimized */}
-      <div className="bg-gradient-primary text-white relative">
+      <div className="bg-gradient-to-br from-red-600 via-red-600 to-red-700 text-white relative">
         {/* Overlay escuro para melhor contraste */}
-        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 text-center">
           <div className="inline-flex items-center justify-center size-16 sm:size-20 rounded-full bg-white/20 backdrop-blur-sm mb-4 sm:mb-6">
             <HelpCircle className="size-8 sm:size-10" />

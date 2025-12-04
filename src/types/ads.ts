@@ -129,13 +129,25 @@ export const ROLE_LABELS: Record<TeamRole, string> = {
 };
 
 export const AD_POSITION_LABELS: Record<AdPosition, string> = {
-  'home-hero-banner': 'Banner Principal (Home)',
-  'home-sidebar': 'Barra Lateral (Home)',
-  'home-middle-banner': 'Banner Central (Home)',
-  'category-top': 'Topo (Categorias)',
-  'product-sidebar': 'Barra Lateral (Produtos)',
-  'checkout-banner': 'Banner (Checkout)',
-  'blog-sidebar': 'Barra Lateral (Blog)',
-  'pre-vendas-sidebar': 'Barra Lateral (Pré-vendas)',
-  'footer-banner': 'Banner (Rodapé)',
+  'home-hero-banner': 'Banner Principal (Home) - 1920×600px',
+  'home-sidebar': 'Barra Lateral (Home) - 300×600px',
+  'home-middle-banner': 'Banner Central (Home) - 1200×400px',
+  'category-top': 'Topo (Categorias) - 1200×300px',
+  'product-sidebar': 'Barra Lateral (Produtos) - 300×250px',
+  'checkout-banner': 'Banner (Checkout) - 1000×200px',
+  'blog-sidebar': 'Barra Lateral (Blog) - 300×600px',
+  'pre-vendas-sidebar': 'Barra Lateral (Pré-vendas) - 300×250px',
+  'footer-banner': 'Banner (Rodapé) - 1200×150px',
+};
+
+export const AD_DIMENSIONS: Record<AdPosition, {width: number; height: number}> = {
+  'home-hero-banner': {width: 1920, height: 600},
+  'home-sidebar': {width: 300, height: 600},
+  'home-middle-banner': {width: 1200, height: 400},
+  'category-top': {width: 1200, height: 300},
+  'product-sidebar': {width: 300, height: 250},
+  'checkout-banner': {width: 1000, height: 200},
+  'blog-sidebar': {width: 300, height: 600},
+  'pre-vendas-sidebar': {width: 300, height: 250},
+  'footer-banner': {width: 1200, height: 150},
 };

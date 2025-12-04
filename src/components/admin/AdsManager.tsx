@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Eye, MousePointer, Calendar, Link as LinkIcon, Image as ImageIcon, BarChart } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, MousePointer, Calendar, Link as LinkIcon, Image as ImageIcon, BarChart, Upload } from 'lucide-react';
 import { Advertisement, AdPosition, AD_POSITION_LABELS } from '../../types/ads';
 import { toast } from 'sonner';
 import { useAds } from '../../hooks/useAds';
@@ -226,18 +226,54 @@ export function AdsManager() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  URL da Imagem *
+                  Imagem do Anúncio *
                 </label>
-                <div className="flex gap-2">
+                
+                {/* Upload de arquivo */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-red-500 transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      
+                      // Mostrar preview
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFormData({ ...formData, imageUrl: reader.result as string });
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                    id="ad-image-upload"
+                  />
+                  <label htmlFor="ad-image-upload" className="cursor-pointer">
+                    {formData.imageUrl ? (
+                      <div className="space-y-2">
+                        <img src={formData.imageUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
+                        <p className="text-sm text-gray-500">Clique para alterar</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="size-12 mx-auto text-gray-400" />
+                        <p className="text-sm text-gray-600">Clique para fazer upload de imagem</p>
+                        <p className="text-xs text-gray-500">PNG, JPG ou WEBP (máx. 5MB cada)</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+                
+                {/* Ou adicione URL de imagem */}
+                <div className="mt-3">
+                  <label className="block text-xs text-gray-500 mb-1">Ou adicione URL de imagem:</label>
                   <input
                     type="url"
-                    required
                     value={formData.imageUrl}
                     onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     placeholder="https://exemplo.com/imagem.jpg"
                   />
-                  <ImageIcon className="size-10 text-gray-400" />
                 </div>
               </div>
 

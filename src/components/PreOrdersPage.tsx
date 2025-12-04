@@ -10,6 +10,7 @@ import { AdBanner } from './AdBanner';
 interface PreOrdersPageProps {
   onBack: () => void;
   onViewProduct?: (productId: string) => void;
+  onNavigateToProduct?: (product: any) => void;
 }
 
 interface PreOrderProduct {
@@ -26,7 +27,7 @@ interface PreOrderProduct {
   };
 }
 
-export function PreOrdersPage({ onBack, onViewProduct }: PreOrdersPageProps) {
+export function PreOrdersPage({ onBack, onViewProduct, onNavigateToProduct }: PreOrdersPageProps) {
   const [products, setProducts] = useState<PreOrderProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -203,7 +204,7 @@ export function PreOrdersPage({ onBack, onViewProduct }: PreOrdersPageProps) {
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             {/* Ads */}
-            <AdBanner position="pre-vendas-sidebar" />
+            <AdBanner position="pre-vendas-sidebar" onNavigateToProduct={onNavigateToProduct} />
 
             {/* Additional Info Card */}
             <Card className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Mail, Download, Trash2, Users, Calendar, TrendingUp } from 'lucide-react';
 import { Button } from '../ui/button';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface Subscriber {
   id: string;
@@ -24,13 +24,40 @@ export function NewsletterManager() {
 
   const loadSubscribers = async () => {
     try {
-      const response = await fetch('/api/newsletter/subscribers');
+      console.log('🔍 [Newsletter] Carregando assinantes...');
+      
+      // Obter token de autenticação
+      let token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (!token) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            token = user.access_token || user.token;
+          } catch {}
+        }
+      }
+      
+      console.log('🔑 [Newsletter] Token encontrado:', !!token);
+      
+      const response = await fetch('/api/newsletter/subscribers', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      
+      console.log('🔍 [Newsletter] Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 [Newsletter] Data recebida:', data);
+        console.log('🔍 [Newsletter] Total assinantes:', data.subscribers?.length || 0);
         setSubscribers(data.subscribers || []);
+      } else {
+        console.error('❌ [Newsletter] Erro na resposta:', response.status);
+        const errorText = await response.text();
+        console.error('❌ [Newsletter] Erro:', errorText);
       }
     } catch (error) {
-      console.error('Erro ao carregar assinantes:', error);
+      console.error('❌ [Newsletter] Erro ao carregar assinantes:', error);
       toast.error('Erro ao carregar assinantes');
     } finally {
       setLoading(false);
@@ -38,6 +65,31 @@ export function NewsletterManager() {
   };
 
   const exportToCSV = () => {
+    const filteredSubs = getFilteredSubscribers();
+    
+    // Criar CSV com aspas e escape correto
+    const csvRows = [
+      // Header
+      ['Email', 'Nome', 'Status', 'Data Inscrição', 'Origem'].join(','),
+      // Data rows
+      ...filteredSubs.map(sub => [
+        `"${sub.email}"`,
+        `"${sub.name || ''}"`,
+        `"${sub.status}"`,
+        `"${new Date(sub.subscribed_at).toLocaleDateString('pt-AO')}"`,
+        `"${sub.source || ''}"`
+      ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `newsletter-subscribers-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const exportToCSV_OLD = () => {
     const filteredSubs = getFilteredSubscribers();
     const csv = [
       ['Email', 'Nome', 'Status', 'Data Inscrição', 'Origem'],

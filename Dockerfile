@@ -16,8 +16,9 @@ RUN npm ci
 # Copy all source code
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client (força regeneração com schema atualizado)
+RUN rm -rf node_modules/.prisma node_modules/@prisma/client
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Build only frontend
 RUN npm run build

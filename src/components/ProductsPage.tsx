@@ -19,6 +19,7 @@ type ProductsPageProps = {
   onCategoryChange: (category: string) => void;
   isInWishlist?: (productId: string) => boolean;
   onToggleWishlist?: (product: Product) => void;
+  onNavigateToProduct?: (product: any) => void;
 };
 
 export function ProductsPage({ 
@@ -27,7 +28,8 @@ export function ProductsPage({
   selectedCategory, 
   onCategoryChange,
   isInWishlist,
-  onToggleWishlist 
+  onToggleWishlist,
+  onNavigateToProduct 
 }: ProductsPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -83,7 +85,7 @@ export function ProductsPage({
     <div className="min-h-screen bg-gray-50">
       {/* Category Advertisement Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <AdBanner position="category-top" />
+        <AdBanner position="category-top" onNavigateToProduct={onNavigateToProduct} />
       </div>
 
       {/* Header - Mobile Optimized */}

@@ -17,20 +17,24 @@ export function CartPage({ cart, onUpdateQuantity, onRemoveItem, onCheckout, onC
   const totalWeight = cart.reduce((sum, item) => sum + (item.product.peso_kg * item.quantity), 0);
   
   // Calculate shipping cost based on products (same logic as CheckoutPage)
-  const shippingCost = cart.reduce((total, item) => {
+  const shippingCost = cart.reduce((maxShipping, item) => {
     const product = item.product;
+    const shippingType = product?.shipping_type || 'dynamic';
     
-    // Se shipping_type não está definido (produtos antigos), considerar frete pago com custo 0
-    const shippingType = product?.shipping_type || 'paid';
-    const shippingCostAoa = product?.shipping_cost_aoa || 0;
-    
-    if (shippingType === 'free') {
-      return total; // Frete grátis
+    // 🎁 Frete grátis
+    if (shippingType === 'free' || shippingType === 'free_all') {
+      return maxShipping;
     }
     
-    // Se tem frete pago, somar o custo (0 se não definido)
-    const itemShipping = shippingCostAoa * item.quantity;
-    return total + itemShipping;
+    // 💰 Frete pago fixo - NÃO multiplica por quantidade
+    if (shippingType === 'paid' || shippingType === 'paid_fixed') {
+      const shippingCostAoa = product?.shipping_cost_aoa || 0;
+      // Retorna o MAIOR frete entre os produtos (não soma, não multiplica)
+      return Math.max(maxShipping, shippingCostAoa);
+    }
+    
+    // 🧮 Frete dinâmico - calculado depois (por enquanto 0)
+    return maxShipping;
   }, 0);
   
   const total = subtotal + shippingCost;

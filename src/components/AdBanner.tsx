@@ -5,17 +5,24 @@ import { Advertisement, AdPosition } from '../types/ads';
 interface AdBannerProps {
   position: AdPosition;
   className?: string;
+  onNavigateToProduct?: (product: any) => void;
+  preloadedAds?: Advertisement[];
 }
 
-export function AdBanner({ position, className = '' }: AdBannerProps) {
-  const [ads, setAds] = useState<Advertisement[]>([]);
+export function AdBanner({ position, className = '', onNavigateToProduct, preloadedAds }: AdBannerProps) {
+  const [ads, setAds] = useState<Advertisement[]>(preloadedAds || []);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [hasTrackedView, setHasTrackedView] = useState(false);
 
   useEffect(() => {
-    loadAds();
-  }, [position]);
+    // Use preloaded ads if available, otherwise fetch
+    if (preloadedAds && preloadedAds.length > 0) {
+      setAds(preloadedAds);
+    } else {
+      loadAds();
+    }
+  }, [position, preloadedAds]);
 
   useEffect(() => {
     // Rotate ads every 10 seconds if multiple ads
@@ -82,10 +89,44 @@ export function AdBanner({ position, className = '' }: AdBannerProps) {
     }
   };
 
-  const handleAdClick = (ad: Advertisement) => {
+  const handleAdClick = async (ad: Advertisement) => {
     trackClick(ad.id);
     if (ad.link_url) {
-      window.open(ad.link_url, '_blank', 'noopener,noreferrer');
+      console.log('🎯 [AdBanner] Clicking ad, link:', ad.link_url);
+      
+      // Se link é interno (/produto/) E temos callback de navegação
+      if (ad.link_url.includes('/produto/') && onNavigateToProduct) {
+        try {
+          // Extrair UUID do link
+          const uuidMatch = ad.link_url.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+          
+          if (uuidMatch) {
+            const productId = uuidMatch[0];
+            console.log('🎯 [AdBanner] Extracted product ID:', productId);
+            
+            // Buscar produto via API
+            const response = await fetch(`/api/products/${productId}`);
+            if (response.ok) {
+              const data = await response.json();
+              // API retorna { product: {...} }
+              const product = data.product || data;
+              console.log('✅ [AdBanner] Product found:', product.nome);
+              
+              // Chamar callback direto do App
+              onNavigateToProduct(product);
+              return;
+            } else {
+              console.error('❌ [AdBanner] API response not OK:', response.status);
+            }
+          }
+        } catch (e) {
+          console.error('❌ [AdBanner] Error loading product:', e);
+        }
+      }
+      
+      // Links externos: navegação normal
+      console.log('🎯 [AdBanner] External link, using direct navigation');
+      window.location.href = ad.link_url;
     }
   };
 
@@ -93,7 +134,22 @@ export function AdBanner({ position, className = '' }: AdBannerProps) {
     setIsVisible(false);
   };
 
-  if (!isVisible || ads.length === 0) {
+  // Loading skeleton
+  if (!isVisible) {
+    return null;
+  }
+
+  if (ads.length === 0) {
+    // Show skeleton loader for hero banner while loading
+    if (position === 'home-hero-banner') {
+      return (
+        <div className={`relative ${className}`}>
+          <div className="relative overflow-hidden shadow-lg animate-pulse">
+            <div className="w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px] bg-gradient-to-br from-gray-200 to-gray-300" />
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -104,15 +160,15 @@ export function AdBanner({ position, className = '' }: AdBannerProps) {
     return (
       <div className={`relative group ${className}`}>
         <div
-          className="relative overflow-hidden rounded-xl sm:rounded-2xl cursor-pointer shadow-lg sm:shadow-xl hover:shadow-2xl transition-shadow"
+          className="relative overflow-hidden cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
           onClick={() => handleAdClick(currentAd)}
         >
           <img
             src={currentAd.imagem_url}
             alt={currentAd.titulo}
-            className="w-full h-[200px] sm:h-[300px] md:h-[400px] object-cover"
+            className="w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px] object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           {(currentAd.titulo || currentAd.descricao) && (
             <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8 text-white">
               {currentAd.titulo && (

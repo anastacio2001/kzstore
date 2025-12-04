@@ -410,6 +410,11 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
                 <span>Blog</span>
               </TabsTrigger>
               
+              <TabsTrigger value="newsletter" className="flex items-center gap-2 py-3 px-4">
+                <Mail className="size-4" />
+                <span>Newsletter</span>
+              </TabsTrigger>
+              
               <TabsTrigger value="reviews" className="flex items-center gap-2 py-3 px-4">
                 <MessageSquare className="size-4" />
                 <span>Avaliações</span>

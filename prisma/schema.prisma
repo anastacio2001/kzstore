@@ -59,10 +59,11 @@ model Product {
   // Fornecedor
   fornecedor        String?   @db.VarChar(200)
   
-  // Frete Personalizado
-  shipping_type     String?   @default("paid") @db.VarChar(20) // 'free' ou 'paid'
+  // Frete Personalizado Avançado
+  shipping_type     String?   @default("paid") @db.VarChar(30) // 'free_all', 'free_luanda', 'paid_fixed', 'dynamic'
   shipping_cost_aoa Decimal?  @default(0) @db.Decimal(10, 2)
   shipping_cost_usd Decimal?  @default(0) @db.Decimal(10, 2)
+  free_shipping_provinces Json? // Array de províncias com frete grátis, ex: ["Luanda", "Bengo"]
   
   // Tags e Categorias
   tags              Json?     // Array de tags
@@ -590,7 +591,7 @@ model Advertisement {
   // Conteúdo
   titulo           String    @db.VarChar(255)
   descricao        String?   @db.Text
-  imagem_url       String    @db.VarChar(500)
+  imagem_url_v2    String    @db.MediumText  @map("imagem_url_v2") // MediumText para suportar imagens base64 grandes (até 16MB)
   link_url         String?   @db.VarChar(500)
   
   // Configuração
@@ -838,3 +839,140 @@ model BlogPost {
   @@index([is_featured])
   @@map("blog_posts")
 }
+
+// ============================================
+// 23️⃣ NEWSLETTER SUBSCRIBERS (Inscritos na Newsletter)
+// ============================================
+model NewsletterSubscriber {
+  id                String    @id @default(uuid())
+  email             String    @unique @db.VarChar(255)
+  name              String?   @db.VarChar(200)
+  status            String    @default("active") @db.VarChar(50) // active, unsubscribed, bounced
+  source            String?   @db.VarChar(100) // footer, blog, popup, checkout
+  subscribed_at     DateTime  @default(now())
+  unsubscribed_at   DateTime?
+  
+  @@index([email])
+  @@index([status])
+  @@index([subscribed_at])
+  @@map("NewsletterSubscriber")
+}
+
+// ============================================
+// 24️⃣ LOW STOCK ALERTS (Alertas de Stock Baixo)
+// ============================================
+model LowStockAlert {
+  id              String    @id @default(uuid())
+  product_id      String
+  product_name    String    @db.VarChar(255)
+  current_stock   Int
+  minimum_stock   Int
+  threshold_level Int       // Nível que disparou o alerta
+  status          String    @default("pending") @db.VarChar(50) // pending, resolved, ignored
+  notified_at     DateTime  @default(now())
+  resolved_at     DateTime?
+  notes           String?   @db.Text
+  
+  @@index([product_id])
+  @@index([status])
+  @@index([notified_at])
+  @@map("low_stock_alerts")
+}
+
+// ============================================
+// 25️⃣ ABANDONED CARTS (Carrinhos Abandonados)
+// ============================================
+model AbandonedCart {
+  id                String    @id @default(uuid())
+  user_id           String?   // Pode ser null para guests
+  user_email        String    @db.VarChar(255)
+  user_name         String?   @db.VarChar(200)
+  cart_items        Json      // Array de itens do carrinho
+  cart_total        Decimal   @db.Decimal(12, 2)
+  currency          String    @default("AOA") @db.VarChar(10)
+  
+  // Tracking
+  created_at        DateTime  @default(now())
+  abandoned_at      DateTime  // Quando foi considerado abandonado (>30min sem atividade)
+  last_reminder_at  DateTime? // Último email de recuperação enviado
+  reminder_count    Int       @default(0) // Quantos emails foram enviados
+  
+  // Status
+  status            String    @default("abandoned") @db.VarChar(50) // abandoned, recovered, expired
+  recovered_at      DateTime? // Se o carrinho foi recuperado (pedido criado)
+  recovered_order_id String?  // ID do pedido criado (se recuperado)
+  
+  // Recovery
+  recovery_token    String?   @unique @db.VarChar(255) // Token único para link de recuperação
+  recovery_discount Float?    // Desconto oferecido para recuperação (%)
+  
+  @@index([user_email])
+  @@index([status])
+  @@index([abandoned_at])
+  @@index([recovery_token])
+  @@map("abandoned_carts")
+}
+
+// ============================================
+// 26️⃣ EMAIL CAMPAIGNS (Campanhas de Email)
+// ============================================
+model EmailCampaign {
+  id              String    @id @default(uuid())
+  name            String    @db.VarChar(255)
+  subject         String    @db.VarChar(500)
+  content_html    String    @db.Text
+  content_text    String?   @db.Text
+  
+  // Segmentation
+  target_audience String    @db.VarChar(100) // all, customers, newsletter, abandoned_carts
+  segment_filter  Json?     // Filtros adicionais
+  
+  // Scheduling
+  status          String    @default("draft") @db.VarChar(50) // draft, scheduled, sending, sent, failed
+  scheduled_for   DateTime?
+  sent_at         DateTime?
+  
+  // Stats
+  total_recipients Int      @default(0)
+  total_sent      Int       @default(0)
+  total_opened    Int       @default(0)
+  total_clicked   Int       @default(0)
+  total_bounced   Int       @default(0)
+  total_unsubscribed Int    @default(0)
+  
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  created_by      String?   // Admin user ID
+  
+  @@index([status])
+  @@index([scheduled_for])
+  @@map("email_campaigns")
+}
+
+// ============================================
+// 27️⃣ ANALYTICS METRICS (Métricas de Analytics)
+// ============================================
+model AnalyticsMetric {
+  id              String    @id @default(uuid())
+  metric_type     String    @db.VarChar(100) // clv, conversion_rate, revenue, orders, etc
+  metric_value    Decimal   @db.Decimal(12, 2)
+  metric_unit     String?   @db.VarChar(50) // AOA, USD, %, count
+  
+  // Dimensions
+  date            DateTime  // Data da métrica
+  period_type     String    @db.VarChar(50) // daily, weekly, monthly, yearly
+  
+  // Segmentation
+  segment_type    String?   @db.VarChar(100) // customer_type, product_category, source
+  segment_value   String?   @db.VarChar(255)
+  
+  // Metadata
+  calculated_at   DateTime  @default(now())
+  metadata        Json?     // Dados adicionais
+  
+  @@index([metric_type, date])
+  @@index([date])
+  @@index([period_type])
+  @@map("analytics_metrics")
+}
+

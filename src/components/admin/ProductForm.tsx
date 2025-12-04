@@ -25,6 +25,27 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [availableSubcategories, setAvailableSubcategories] = useState<any[]>([]);
 
+  /**
+   * Generate EAN-13 barcode (GTIN)
+   */
+  const generateEAN13 = (): string => {
+    // Generate 12 random digits
+    let code = '';
+    for (let i = 0; i < 12; i++) {
+      code += Math.floor(Math.random() * 10);
+    }
+    
+    // Calculate check digit
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(code[i]);
+      sum += (i % 2 === 0) ? digit : digit * 3;
+    }
+    const checkDigit = (10 - (sum % 10)) % 10;
+    
+    return code + checkDigit;
+  };
+
   const [formData, setFormData] = useState({
     nome: product?.nome || '',
     descricao: product?.descricao || '',
@@ -34,12 +55,17 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
     preco_aoa: product?.preco_aoa || 0,
     peso_kg: product?.peso_kg || 0,
     estoque: product?.estoque || 0,
+    marca: product?.marca || '',
+    modelo: product?.modelo || '',
+    sku: product?.sku || '',
+    codigo_barras: product?.codigo_barras || '',
     is_pre_order: product?.is_pre_order || false,
     pre_order_estimated_arrival: product?.pre_order_info?.estimated_arrival || '',
     pre_order_deposit_percentage: product?.pre_order_info?.deposit_percentage || 30,
-    shipping_type: product?.shipping_type || 'paid',
+    shipping_type: product?.shipping_type || 'dynamic',
     shipping_cost_aoa: product?.shipping_cost_aoa || 0,
     shipping_cost_usd: product?.shipping_cost_usd || 0,
+    free_shipping_provinces: product?.free_shipping_provinces || [],
   });
   
   // Estados separados para manter strings enquanto digita (para aceitar vírgulas)
@@ -327,6 +353,70 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
                 <option value="Refurbished">Refurbished</option>
               </select>
             </div>
+
+            {/* NOVOS CAMPOS PARA FEEDS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="marca">Marca *</Label>
+                <Input
+                  id="marca"
+                  type="text"
+                  value={formData.marca}
+                  onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+                  placeholder="Ex: Kingston, Corsair, Samsung"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Obrigatório para Facebook/Google</p>
+              </div>
+
+              <div>
+                <Label htmlFor="modelo">Modelo</Label>
+                <Input
+                  id="modelo"
+                  type="text"
+                  value={formData.modelo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                  placeholder="Ex: HyperX Fury"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="codigo_barras">Código de Barras (GTIN/EAN-13)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="codigo_barras"
+                    type="text"
+                    value={formData.codigo_barras}
+                    onChange={(e) => setFormData(prev => ({ ...prev, codigo_barras: e.target.value }))}
+                    placeholder="1234567890123"
+                    maxLength={13}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFormData(prev => ({ ...prev, codigo_barras: generateEAN13() }))}
+                    title="Gerar código automaticamente"
+                  >
+                    🎲 Gerar
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Recomendado para Google Merchant</p>
+              </div>
+
+              <div>
+                <Label htmlFor="sku">SKU</Label>
+                <Input
+                  id="sku"
+                  type="text"
+                  value={formData.sku}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                  placeholder="Ex: RAM-DDR4-16GB-001"
+                />
+                <p className="text-xs text-gray-500 mt-1">Código interno do produto</p>
+              </div>
+            </div>
           </div>
 
           {/* Imagens do Produto */}
@@ -512,83 +602,75 @@ export function ProductForm({ product, onSave, onCancel }: ProductFormProps) {
                   onChange={(e) => setFormData(prev => ({ ...prev, shipping_type: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
                 >
-                  <option value="free">Frete Grátis 🎁</option>
-                  <option value="paid">Frete Pago 💰</option>
+                  <option value="free">🎁 Frete Grátis (Todo o País)</option>
+                  <option value="paid">💰 Frete Fixo (Definir Valor)</option>
+                  <option value="dynamic">🧮 Frete Dinâmico (Por Província)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.shipping_type === 'free' && '✅ Cliente não paga frete em nenhuma província'}
+                  {formData.shipping_type === 'paid' && '💵 Você define um valor fixo de frete'}
+                  {formData.shipping_type === 'dynamic' && '🧮 Sistema calcula frete baseado na província'}
+                </p>
               </div>
 
+              {/* Frete Pago Fixo */}
               {formData.shipping_type === 'paid' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
-                  <div>
-                    <Label htmlFor="shipping_cost_aoa">Custo de Frete (AOA) <span className="text-xs">(Ex: 5000 ou 5.000,00)</span></Label>
-                    <Input
-                      id="shipping_cost_aoa"
-                      type="text"
-                      placeholder="Ex: 5 000,00"
-                      value={shippingCostAoaInput}
-                      onChange={(e) => {
-                        const rawValue = e.target.value;
-                        if (rawValue !== '' && !/^[0-9,.\s]+$/.test(rawValue)) return;
-                        
-                        setShippingCostAoaInput(rawValue);
-                        
-                        const cleanValue = rawValue.replace(/\s/g, '').replace(',', '.');
-                        const numValue = parseFloat(cleanValue);
-                        
-                        if (!isNaN(numValue) && numValue >= 0) {
-                          setFormData(prev => ({ ...prev, shipping_cost_aoa: numValue }));
-                        } else if (rawValue === '' || rawValue === '0') {
-                          setFormData(prev => ({ ...prev, shipping_cost_aoa: 0 }));
-                        }
-                      }}
-                      onBlur={() => {
-                        if (formData.shipping_cost_aoa > 0) {
-                          setShippingCostAoaInput(formData.shipping_cost_aoa.toString());
-                        }
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="shipping_cost_usd">Custo de Frete (USD) <span className="text-xs">(Ex: 5.00 ou 5,00)</span></Label>
-                    <Input
-                      id="shipping_cost_usd"
-                      type="text"
-                      placeholder="Ex: 5,00"
-                      value={shippingCostUsdInput}
-                      onChange={(e) => {
-                        const rawValue = e.target.value;
-                        if (rawValue !== '' && !/^[0-9,.\s]+$/.test(rawValue)) return;
-                        
-                        setShippingCostUsdInput(rawValue);
-                        
-                        const cleanValue = rawValue.replace(/\s/g, '').replace(',', '.');
-                        const numValue = parseFloat(cleanValue);
-                        
-                        if (!isNaN(numValue) && numValue >= 0) {
-                          setFormData(prev => ({ ...prev, shipping_cost_usd: numValue }));
-                        } else if (rawValue === '' || rawValue === '0') {
-                          setFormData(prev => ({ ...prev, shipping_cost_usd: 0 }));
-                        }
-                      }}
-                      onBlur={() => {
-                        if (formData.shipping_cost_usd > 0) {
-                          setShippingCostUsdInput(formData.shipping_cost_usd.toString());
-                        }
-                      }}
-                    />
-                  </div>
+                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <Label htmlFor="shipping_cost_aoa">Valor do Frete (AOA) *</Label>
+                  <Input
+                    id="shipping_cost_aoa"
+                    type="text"
+                    placeholder="Ex: 5000"
+                    value={shippingCostAoaInput}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      if (rawValue !== '' && !/^[0-9,.\s]+$/.test(rawValue)) return;
+                      
+                      setShippingCostAoaInput(rawValue);
+                      
+                      const cleanValue = rawValue.replace(/\s/g, '').replace(',', '.');
+                      const numValue = parseFloat(cleanValue);
+                      
+                      if (!isNaN(numValue) && numValue >= 0) {
+                        setFormData(prev => ({ ...prev, shipping_cost_aoa: numValue }));
+                      } else if (rawValue === '' || rawValue === '0') {
+                        setFormData(prev => ({ ...prev, shipping_cost_aoa: 0 }));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (formData.shipping_cost_aoa > 0) {
+                        setShippingCostAoaInput(formData.shipping_cost_aoa.toString());
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-gray-600 mt-1">Este valor será cobrado para todas as províncias</p>
                 </div>
               )}
 
-              {formData.shipping_type === 'free' && (
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-green-700 text-sm flex items-center gap-2">
-                    <span className="text-2xl">🎁</span>
-                    <span>Este produto tem <strong>ENTREGA GRÁTIS EM LUANDA</strong>!</span>
-                  </p>
-                </div>
-              )}
+              {/* Resumo Visual */}
+              <div className="p-4 rounded-lg border-2" style={{
+                backgroundColor: formData.shipping_type === 'free' ? '#f0fdf4' : 
+                               formData.shipping_type === 'paid' ? '#fef3c7' : '#eff6ff',
+                borderColor: formData.shipping_type === 'free' ? '#86efac' : 
+                            formData.shipping_type === 'paid' ? '#fcd34d' : '#93c5fd'
+              }}>
+                <p className="font-semibold mb-2 flex items-center gap-2">
+                  {formData.shipping_type === 'free' ? '🎁' : 
+                   formData.shipping_type === 'paid' ? '💰' : '🧮'}
+                  Resumo do Frete:
+                </p>
+                <ul className="text-sm space-y-1">
+                  {formData.shipping_type === 'free' && (
+                    <li className="text-green-700">✅ GRÁTIS em todas as províncias</li>
+                  )}
+                  {formData.shipping_type === 'paid' && (
+                    <li className="text-yellow-700">💰 Frete fixo: {formData.shipping_cost_aoa > 0 ? `${formData.shipping_cost_aoa.toLocaleString('pt-AO')} Kz` : 'Defina o valor'}</li>
+                  )}
+                  {formData.shipping_type === 'dynamic' && (
+                    <li className="text-blue-700">🧮 Calculado automaticamente por província</li>
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
 

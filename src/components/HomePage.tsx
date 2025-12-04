@@ -6,6 +6,7 @@ import { Product } from '../App';
 import { AdBanner } from './AdBanner';
 import { FlashSaleBanner } from './FlashSaleBanner';
 import AvailableCoupons from './AvailableCoupons';
+import { Advertisement } from '../types/ads';
 
 interface HeroSettings {
   title: string;
@@ -26,6 +27,7 @@ type HomePageProps = {
   onCategorySelect: (category: string) => void;
   isInWishlist?: (productId: string) => boolean;
   onToggleWishlist?: (product: Product) => void;
+  onNavigateToProduct?: (product: any) => void;
 };
 
 export function HomePage({ 
@@ -35,8 +37,12 @@ export function HomePage({
   onNavigateToProducts, 
   onCategorySelect,
   isInWishlist,
-  onToggleWishlist
+  onToggleWishlist,
+  onNavigateToProduct
 }: HomePageProps) {
+  // Pre-load ads cache
+  const [adsCache, setAdsCache] = useState<Record<string, Advertisement[]>>({});
+
   // Hero Settings - Carregado do localStorage ou valores padrão
   const [heroSettings, setHeroSettings] = useState<HeroSettings>({
     title: 'Tecnologia de',
@@ -48,6 +54,32 @@ export function HomePage({
     secondaryButtonText: 'Falar com Especialista',
     secondaryButtonLink: '/contato'
   });
+
+  useEffect(() => {
+    // Pre-load all ads for homepage positions
+    const preloadAds = async () => {
+      const positions = ['home-hero-banner', 'home-middle-banner', 'home-sidebar'];
+      const cache: Record<string, Advertisement[]> = {};
+      
+      await Promise.all(
+        positions.map(async (position) => {
+          try {
+            const response = await fetch(`/api/ads?posicao=${position}&ativo=true`);
+            if (response.ok) {
+              const data = await response.json();
+              cache[position] = data || [];
+            }
+          } catch (error) {
+            console.warn(`Failed to preload ads for ${position}:`, error);
+          }
+        })
+      );
+      
+      setAdsCache(cache);
+    };
+
+    preloadAds();
+  }, []);
 
   useEffect(() => {
     // Carregar configurações salvas
@@ -164,8 +196,8 @@ export function HomePage({
   return (
     <div className="min-h-screen">
       {/* Hero Advertisement Banner */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <AdBanner position="home-hero-banner" />
+      <div className="w-full">
+        <AdBanner position="home-hero-banner" onNavigateToProduct={onNavigateToProduct} preloadedAds={adsCache['home-hero-banner']} />
       </div>
 
       {/* Hero Section - Modern & Bold */}
@@ -281,6 +313,16 @@ export function HomePage({
           }
         }}
       />
+
+      {/* Middle Banner Advertisement */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AdBanner position="home-middle-banner" onNavigateToProduct={onNavigateToProduct} preloadedAds={adsCache['home-middle-banner']} />
+      </div>
+
+      {/* Sidebar Banner (opcional - pode adicionar ao lado de conteúdo) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <AdBanner position="home-sidebar" onNavigateToProduct={onNavigateToProduct} preloadedAds={adsCache['home-sidebar']} />
+      </div>
 
       {/* Stats Section */}
       <section className="py-8 sm:py-12 bg-white border-y">
@@ -436,7 +478,7 @@ export function HomePage({
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-primary relative overflow-hidden">
+      <section className="py-20 bg-gradient-to-br from-red-600 via-red-600 to-red-700 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -459,6 +501,13 @@ export function HomePage({
           </Button>
         </div>
       </section>
+
+      {/* Footer Banner Advertisement */}
+      <div className="w-full bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <AdBanner position="footer-banner" onNavigateToProduct={onNavigateToProduct} />
+        </div>
+      </div>
     </div>
   );
 }

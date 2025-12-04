@@ -3,6 +3,7 @@ import { Calendar, User, ArrowRight, Tag, Clock, ArrowLeft, Zap, ShoppingCart } 
 import { Button } from './ui/button';
 import { getBlogPosts, BlogPost } from '../services/blogService';
 import { AdBanner } from './AdBanner';
+import { NewsletterForm } from './NewsletterForm';
 
 type FlashSale = {
   id: string;
@@ -24,9 +25,10 @@ type FlashSale = {
 type BlogPageProps = {
   onBack?: () => void;
   onViewProduct?: (productId: string) => void;
+  onNavigateToProduct?: (product: any) => void;
 };
 
-export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
+export function BlogPage({ onBack, onViewProduct, onNavigateToProduct }: BlogPageProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -240,7 +242,7 @@ export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
             {/* Sidebar for Single Post */}
             <div className="space-y-6">
               {/* Ads */}
-              <AdBanner position="blog-sidebar" />
+              <AdBanner position="blog-sidebar" onNavigateToProduct={onNavigateToProduct} />
 
               {/* Flash Sales Widget */}
               {flashSales.length > 0 && (
@@ -512,7 +514,7 @@ export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Ads */}
-            <AdBanner position="blog-sidebar" />
+            <AdBanner position="blog-sidebar" onNavigateToProduct={onNavigateToProduct} />
 
             {/* Flash Sales Widget */}
             {flashSales.length > 0 && (
@@ -602,14 +604,7 @@ export function BlogPage({ onBack, onViewProduct }: BlogPageProps) {
               <p className="text-sm mb-4 opacity-90">
                 Receba artigos e dicas no seu email
               </p>
-              <input
-                type="email"
-                placeholder="Seu email"
-                className="w-full px-3 py-2 rounded text-gray-900 text-sm mb-2"
-              />
-              <Button className="w-full bg-white text-[#E31E24] hover:bg-gray-100 text-sm">
-                Subscrever
-              </Button>
+              <NewsletterForm source="blog" className="space-y-2" />
             </div>
           </div>
         </div>

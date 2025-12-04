@@ -21,6 +21,7 @@ type CheckoutPageProps = {
   onOrderComplete: () => void;
   onBack: () => void;
   onViewProduct?: (productId: string) => void;
+  onNavigateToProduct?: (product: any) => void;
 };
 
 type PaymentMethod = 'multicaixa' | 'bank_transfer' | 'reference';
@@ -35,7 +36,7 @@ type Coupon = {
   description: string;
 };
 
-export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewProduct }: CheckoutPageProps) {
+export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewProduct, onNavigateToProduct }: CheckoutPageProps) {
   const [step, setStep] = useState<Step>('info');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('multicaixa');
   const [orderNumber, setOrderNumber] = useState('');
@@ -86,22 +87,41 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   // Check if cart has flash sale products
   const hasFlashSaleProducts = cart.some(item => (item.product as any).is_flash_sale);
 
-  // Calculate shipping cost based on products
-  const shippingCost = cart.reduce((total, item) => {
+  // Calculate shipping cost - PEGA O MAIOR frete fixo entre produtos (não soma)
+  const shippingCost = cart.reduce((maxShipping, item) => {
     const product = item.product;
+    const shippingType = product?.shipping_type || 'dynamic';
     
-    // Se shipping_type não está definido (produtos antigos), considerar frete pago com custo 0
-    const shippingType = product?.shipping_type || 'paid';
-    const shippingCostAoa = product?.shipping_cost_aoa || 0;
+    console.log('🚚 [Frete] Produto:', product?.nome);
+    console.log('🚚 [Frete] Tipo:', shippingType);
     
-    if (shippingType === 'free') {
-      return total; // Frete grátis
+    // 🎁 Frete grátis
+    if (shippingType === 'free' || shippingType === 'free_all') {
+      console.log('✅ [Frete] GRÁTIS');
+      return maxShipping;
     }
     
-    // Se tem frete pago, somar o custo (0 se não definido)
-    const itemShipping = shippingCostAoa * item.quantity;
-    return total + itemShipping;
+    // 💰 Frete pago fixo - NÃO multiplica por quantidade
+    if (shippingType === 'paid' || shippingType === 'paid_fixed') {
+      const shippingCostAoa = product?.shipping_cost_aoa || 0;
+      console.log('💰 [Frete] Fixo:', shippingCostAoa);
+      // Retorna o MAIOR frete entre os produtos (não soma)
+      return Math.max(maxShipping, shippingCostAoa);
+    }
+    
+    // 🧮 Frete dinâmico - calculado depois
+    console.log('🧮 [Frete] Dinâmico');
+    return maxShipping;
   }, 0);
+  
+  console.log('📦 [Frete] Custo calculado:', shippingCost);
+  
+  // Verificar se algum produto tem frete fixo (paid/paid_fixed)
+  const hasFixedShipping = cart.some(item => {
+    const type = item.product?.shipping_type;
+    return type === 'paid' || type === 'paid_fixed';
+  });
+  console.log('🔍 [Frete] Tem frete fixo?', hasFixedShipping);
   
   // Calculate discount from applied coupon (only if no flash sale products)
   const discountAmount = appliedCoupon && !hasFlashSaleProducts
@@ -110,8 +130,27 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
       : appliedCoupon.discount_value
     : 0;
   
-  // Use dynamic shipping cost se maior que o padrão calculado
-  const finalShippingCost = Math.max(shippingCost, dynamicShippingCost);
+  // Verificar se todos produtos têm frete grátis
+  const allProductsFreeShipping = cart.length > 0 && cart.every(item => {
+    const shippingType = item.product?.shipping_type || 'dynamic';
+    return shippingType === 'free' || shippingType === 'free_all';
+  });
+  
+  console.log('✅ [Frete] Todos grátis?', allProductsFreeShipping);
+  console.log('💵 [Frete] Frete dinâmico:', dynamicShippingCost);
+  console.log('📊 [Frete] Shipping cost calculado:', shippingCost);
+  console.log('🔍 [Frete] Has fixed shipping?', hasFixedShipping);
+  
+  // Lógica SIMPLES de frete final:
+  // 1. Todos grátis? → 0
+  // 2. Tem paid/paid_fixed? → usa shippingCost
+  // 3. Caso contrário (dynamic) → usa dynamicShippingCost
+  const finalShippingCost = allProductsFreeShipping ? 0 : 
+                            hasFixedShipping ? shippingCost :
+                            dynamicShippingCost;
+  
+  console.log('🎯 [Frete] FINAL:', finalShippingCost);
+  
   const total = safeCartTotal + finalShippingCost - discountAmount;
 
   // BUILD 131: Handle dynamic shipping calculation
@@ -552,10 +591,28 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                   </div>
 
                   {/* BUILD 131: Dynamic Shipping Calculator */}
-                  <ShippingCalculator
-                    defaultProvince={formData.cidade}
-                    onCalculate={handleShippingCalculated}
-                  />
+                  {/* Mostra APENAS se: todos produtos são dynamic OU se há mix de tipos SEM paid_fixed */}
+                  {!allProductsFreeShipping && !hasFixedShipping && (
+                    <ShippingCalculator
+                      defaultProvince={formData.cidade}
+                      onCalculate={handleShippingCalculated}
+                    />
+                  )}
+                  
+                  {/* Indicador de frete grátis */}
+                  {allProductsFreeShipping && (
+                    <div className="p-4 bg-green-50 border-2 border-green-200 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 bg-green-500 rounded-full flex items-center justify-center">
+                          <Truck className="size-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-green-800">Frete GRÁTIS!</p>
+                          <p className="text-sm text-green-600">Todos os produtos têm frete grátis em todo o país</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Observações */}
                   <div>
@@ -952,7 +1009,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
 
       {/* Ad Banner */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <AdBanner position="checkout-banner" />
+        <AdBanner position="checkout-banner" onNavigateToProduct={onNavigateToProduct} />
       </div>
     </div>
   );

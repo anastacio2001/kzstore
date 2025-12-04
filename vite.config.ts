@@ -3,8 +3,19 @@
   import react from '@vitejs/plugin-react-swc';
   import path from 'path';
 
+  const buildTimestamp = Date.now().toString();
+
   export default defineConfig({
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Plugin para substituir BUILD_TIMESTAMP no HTML
+      {
+        name: 'html-transform',
+        transformIndexHtml(html) {
+          return html.replace('BUILD_TIMESTAMP_PLACEHOLDER', buildTimestamp);
+        }
+      }
+    ],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {

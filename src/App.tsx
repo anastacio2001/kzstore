@@ -131,13 +131,19 @@ function AdminPageContent({
 export default function App() {
   // Carregar página atual do localStorage ou URL hash, ou usar 'home' como padrão
   const [currentPage, setCurrentPage] = useState<Page>(() => {
-    // Primeiro, tentar obter da URL hash
+    // Primeiro, verificar hash (tem prioridade sobre pathname)
     const hash = window.location.hash.slice(1); // Remove o #
     if (hash) {
       const validPages: Page[] = ['home', 'products', 'product-detail', 'cart', 'checkout', 'admin', 'wishlist', 'faq', 'about', 'contact', 'login', 'forgot-password', 'reset-password', 'privacy', 'terms', 'return', 'cookie', 'not-found', 'promocoes', 'blog', 'carreiras', 'devolucao', 'garantia', 'my-orders', 'my-quotes', 'my-account', 'my-loyalty', 'trade-in', 'quote-request', 'pre-orders', 'support-tickets', 'track-order'];
       if (validPages.includes(hash as Page)) {
         return hash as Page;
       }
+    }
+    
+    // Se não há hash, verificar se é URL tipo /produto/slug-id
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/produto/') && pathname !== '/') {
+      return 'product-detail';
     }
     
     // Se não houver hash válido, tentar localStorage
@@ -272,6 +278,50 @@ export default function App() {
 
   // Salvar e carregar produto selecionado
   useEffect(() => {
+    // Verificar se é URL tipo /produto/slug-id e extrair o ID
+    // IMPORTANTE: Só processar se NÃO tiver hash (hash tem prioridade)
+    const hash = window.location.hash.slice(1);
+    const pathname = window.location.pathname;
+    
+    // Se tem hash válido, ignorar pathname
+    if (hash) {
+      console.log('🔍 [URL] Hash detectado, ignorando pathname:', hash);
+      return;
+    }
+    
+    if (pathname.startsWith('/produto/') && !selectedProduct && products.length > 0) {
+      const urlPart = pathname.split('/produto/')[1];
+      
+      console.log('🔍 [URL] pathname completo:', pathname);
+      console.log('🔍 [URL] parte depois de /produto/:', urlPart);
+      
+      // Extrair UUID usando regex (formato: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      const uuidMatch = urlPart.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      
+      if (!uuidMatch) {
+        console.error('❌ [URL] UUID não encontrado na URL:', urlPart);
+        setCurrentPage('not-found');
+        return;
+      }
+      
+      const productId = uuidMatch[0];
+      console.log('🔍 [URL] UUID extraído:', productId);
+      console.log('🔍 [URL] Total de produtos disponíveis:', products.length);
+      
+      // Buscar produto pelo ID
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        console.log('✅ [URL] Produto encontrado:', product.nome, '| ID:', product.id);
+        setSelectedProduct(product);
+        return;
+      } else {
+        console.error('❌ [URL] Produto não encontrado com ID:', productId);
+        console.log('📋 [URL] IDs disponíveis:', products.slice(0, 5).map(p => ({ id: p.id, nome: p.nome })));
+        setCurrentPage('not-found');
+        return;
+      }
+    }
+    
     // Carregar produto do localStorage se estiver na página de detalhes
     if (currentPage === 'product-detail' && !selectedProduct) {
       const savedProduct = localStorage.getItem('kzstore_selected_product');
@@ -281,7 +331,7 @@ export default function App() {
         } catch (error) {
           console.error('Error loading selected product:', error);
           // Se falhar, voltar para produtos
-          navigateTo('products');
+          setCurrentPage('products');
         }
       }
     }
@@ -290,7 +340,59 @@ export default function App() {
     if (selectedProduct) {
       localStorage.setItem('kzstore_selected_product', JSON.stringify(selectedProduct));
     }
-  }, [currentPage, selectedProduct]);
+  }, [currentPage, selectedProduct, products]);
+
+  // 🎯 CALLBACK: Navegação de produto vinda do AdBanner
+  const handleNavigateToProduct = (product: any) => {
+    console.log('🎯 [App] Navigating to product:', product.nome);
+    setSelectedProduct(product);
+    setCurrentPage('product-detail');
+  };
+
+  // 🔗 DETECÇÃO DE URL DE PRODUTO COMPARTILHADO
+  useEffect(() => {
+    const pathname = window.location.pathname;
+    
+    // Se a URL é /produto/slug-uuid, extrair UUID e carregar produto
+    if (pathname.startsWith('/produto/') && pathname !== '/produto/') {
+      console.log('🔗 [Product URL] Detected shared product URL:', pathname);
+      
+      // Extrair UUID do pathname
+      const uuidMatch = pathname.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      
+      if (uuidMatch) {
+        const productId = uuidMatch[0];
+        console.log('🔗 [Product URL] Extracted product ID:', productId);
+        
+        // Buscar produto da API
+        fetch(`/api/products/${productId}`)
+          .then(response => {
+            if (response.ok) {
+              return response.json();
+            }
+            throw new Error('Product not found');
+          })
+          .then(data => {
+            const product = data.product || data;
+            console.log('✅ [Product URL] Product loaded:', product.nome);
+            setSelectedProduct(product);
+            setCurrentPage('product-detail');
+            // Limpar pathname para evitar confusão, manter hash
+            window.history.replaceState({}, '', '/#product-detail');
+          })
+          .catch(error => {
+            console.error('❌ [Product URL] Error loading product:', error);
+            showToast('Produto não encontrado', 'error');
+            setCurrentPage('home');
+            window.history.replaceState({}, '', '/#home');
+          });
+      } else {
+        console.error('❌ [Product URL] No UUID found in URL');
+        setCurrentPage('home');
+        window.history.replaceState({}, '', '/#home');
+      }
+    }
+  }, []); // Executar apenas uma vez no mount
 
   // Escutar mudanças no hash da URL para permitir navegação direta
   useEffect(() => {
@@ -657,6 +759,7 @@ export default function App() {
               onCategorySelect={handleCategorySelect}
               isInWishlist={isInWishlist}
               onToggleWishlist={toggleWishlist}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
@@ -668,6 +771,7 @@ export default function App() {
               onCategoryChange={setSelectedCategory}
               isInWishlist={isInWishlist}
               onToggleWishlist={toggleWishlist}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
@@ -690,6 +794,7 @@ export default function App() {
               userEmail={user?.email}
               userName={user?.user_metadata?.name || user?.nome || user?.name || user?.email?.split('@')[0] || 'Usuário'}
               accessToken={accessToken}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
@@ -728,6 +833,7 @@ export default function App() {
                   navigateTo('product-detail');
                 }
               }}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
@@ -829,6 +935,7 @@ export default function App() {
                   console.error('❌ Produto não encontrado:', productId);
                 }
               }}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
@@ -876,6 +983,7 @@ export default function App() {
                   navigateTo('product-detail');
                 }
               }}
+              onNavigateToProduct={handleNavigateToProduct}
             />
           )}
 
