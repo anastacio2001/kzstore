@@ -5521,7 +5521,8 @@ app.get('/api/webhooks/events', requireAdmin, async (req, res) => {
 
 /**
  * CRON JOB 1: Check low stock alerts
- * Frequency: Every 30 minutes (*/30 * * * *)
+ * Frequency: Every 30 minutes
+ * Schedule: star-slash-30 star star star star (cron format)
  * Trigger with Google Cloud Scheduler
  */
 app.post('/api/cron/low-stock-alerts', async (req, res) => {
