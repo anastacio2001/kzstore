@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell, Star, Edit2, Trash2, MessageSquare, Search, Folder, Menu, X, PenSquare, Mail } from 'lucide-react';
+import { Package, ShoppingCart, Users, BarChart3, ArrowLeft, LayoutDashboard, Megaphone, UserCog, Tag, Zap, Sparkles, LogOut, Ticket, Repeat, FileText, Bell, Star, Edit2, Trash2, MessageSquare, Search, Folder, Menu, X, PenSquare, Mail, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -31,13 +31,14 @@ import { ReviewsManager } from './admin/ReviewsManager'; // 🔥 NOVO: Gestão d
 import { DataMigrationTool } from './admin/DataMigrationTool'; // 🔥 Ferramenta de migração
 import { BlogManager } from './admin/BlogManager'; // 🔥 NOVO: Gestão de blog
 import { NewsletterManager } from './admin/NewsletterManager'; // 🔥 BUILD 131: Email marketing
+import { CronJobsManager } from './admin/CronJobsManager'; // 🔥 NOVO: Gestão de Cron Jobs
 
 type UnifiedAdminPanelProps = {
   onBack: () => void;
   onLogout?: () => void;
 };
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'reviews' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'newsletter' | 'migration' | 'hero-settings' | 'categories' | 'footer-settings' | 'blog';
+type Tab = 'dashboard' | 'products' | 'orders' | 'coupons' | 'flash-sales' | 'customers' | 'ads' | 'team' | 'reviews' | 'tickets' | 'pre-orders' | 'trade-in' | 'quotes' | 'affiliates' | 'newsletter' | 'migration' | 'hero-settings' | 'categories' | 'footer-settings' | 'blog' | 'cron-jobs';
 
 export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -287,6 +288,7 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
                 { id: 'hero-settings', icon: Sparkles, label: 'Página Inicial' },
                 { id: 'blog', icon: PenSquare, label: 'Blog' },
                 { id: 'newsletter', icon: Mail, label: 'Newsletter' },
+                { id: 'cron-jobs', icon: Clock, label: 'Cron Jobs' },
                 { id: 'reviews', icon: MessageSquare, label: 'Avaliações' },
                 { id: 'tickets', icon: Ticket, label: 'Tickets' },
                 { id: 'pre-orders', icon: Bell, label: 'Pré-Vendas' },
@@ -778,6 +780,11 @@ export function UnifiedAdminPanel({ onBack, onLogout }: UnifiedAdminPanelProps) 
         {/* Blog */}
         {activeTab === 'blog' && (
           <BlogManager />
+        )}
+
+        {/* Cron Jobs */}
+        {activeTab === 'cron-jobs' && (
+          <CronJobsManager />
         )}
 
         {/* Migration */}
