@@ -1,6 +1,6 @@
 #!/bin/bash
 
-URL="https://kzstore-341392738431.us-central1.run.app"
+URL="https://kzstore-341392738431.europe-southwest1.run.app"
 
 echo "🧪 TESTANDO TODOS OS CRON JOBS DA FASE 4"
 echo "=========================================="

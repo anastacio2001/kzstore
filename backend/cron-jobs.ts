@@ -381,7 +381,7 @@ export async function sendWeeklyReport(): Promise<{
           created_at: { gte: sevenDaysAgo },
           status: { in: ['pago', 'enviado', 'entregue'] }
         },
-        _sum: { total_aoa: true }
+        _sum: { total: true }
       }),
       prisma.user.count({
         where: {
@@ -392,7 +392,7 @@ export async function sendWeeklyReport(): Promise<{
       prisma.product.count({ where: { ativo: true } })
     ]);
 
-    const revenue = Number(totalRevenue._sum.total_aoa || 0);
+    const revenue = Number(totalRevenue._sum.total || 0);
 
     // Buscar produto mais vendido da semana
     const weekOrders = await prisma.order.findMany({
