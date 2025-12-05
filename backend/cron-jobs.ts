@@ -372,7 +372,7 @@ export async function sendWeeklyReport(): Promise<{
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     // Estatísticas da semana
-    const [totalOrders, totalRevenue, newUsers, totalProducts] = await Promise.all([
+    const [totalOrders, totalRevenue, totalProducts] = await Promise.all([
       prisma.order.count({
         where: { created_at: { gte: sevenDaysAgo } }
       }),
@@ -382,12 +382,6 @@ export async function sendWeeklyReport(): Promise<{
           status: { in: ['pago', 'enviado', 'entregue'] }
         },
         _sum: { total: true }
-      }),
-      prisma.user.count({
-        where: {
-          created_at: { gte: sevenDaysAgo },
-          role: 'customer'
-        }
       }),
       prisma.product.count({ where: { ativo: true } })
     ]);
@@ -432,9 +426,8 @@ export async function sendWeeklyReport(): Promise<{
         <li><strong>Ticket Médio:</strong> ${totalOrders > 0 ? (revenue / totalOrders).toLocaleString('pt-AO') : 0} AOA</li>
       </ul>
 
-      <h3>Clientes e Produtos</h3>
+      <h3>Produtos</h3>
       <ul>
-        <li><strong>Novos Clientes:</strong> ${newUsers}</li>
         <li><strong>Produtos Ativos:</strong> ${totalProducts}</li>
         <li><strong>Produto Mais Vendido:</strong> ${topProduct.name} (${topProduct.sales} unidades)</li>
       </ul>
