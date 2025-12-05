@@ -42,6 +42,13 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+
+  // Skip external domains (like Unsplash, CDNs, etc) - let browser handle them
+  if (url.origin !== location.origin) {
+    return;
+  }
+
   // Skip API calls from cache
   if (event.request.url.includes('/api/')) {
     return event.respondWith(fetch(event.request));
@@ -50,11 +57,13 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Clone response for cache
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        // Only cache successful responses from same origin
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
         return response;
       })
       .catch(() => {
