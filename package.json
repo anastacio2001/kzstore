@@ -110,7 +110,7 @@
             "build": "vite build",
             "build:backend": "tsc -p tsconfig.backend.json",
             "build:all": "npm run build && npm run build:backend",
-            "start": "node --loader ts-node/esm server.ts",
+            "start": "node dist/backend/server.js",
             "start:server": "node dist/backend/server.js",
             "prisma:generate": "prisma generate",
             "prisma:migrate": "prisma migrate dev",
