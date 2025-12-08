@@ -49,3 +49,6 @@ cookies.txt
 
 # TypeScript
 *.tsbuildinfo
+.vercel
+.env*.local
+.env.yaml
