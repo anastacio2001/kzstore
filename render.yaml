@@ -4,8 +4,8 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npx prisma generate
-    startCommand: npm start
+    buildCommand: npm install && npx prisma generate && npm run build:backend
+    startCommand: node dist/backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
