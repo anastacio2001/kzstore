@@ -2,7 +2,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 
 app = 'kzstore-backend'
-primary_region = 'mad'  # Madrid - mais próximo de Angola
+primary_region = 'cdg'  # Paris - próximo de Angola e Europa
 
 [build]
   [build.args]
