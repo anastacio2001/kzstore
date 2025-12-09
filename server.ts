@@ -5436,6 +5436,10 @@ app.get('/api/newsletter/subscribers', requireAdmin, async (req, res) => {
     res.json({ subscribers, total: subscribers.length });
   } catch (error: any) {
     console.error('Error fetching subscribers:', error);
+    // Return empty array if table doesn't exist
+    if (error?.meta?.code === '42P01' || error?.code === 'P2010') {
+      return res.json({ subscribers: [], total: 0 });
+    }
     res.status(500).json({ error: error.message });
   }
 });
