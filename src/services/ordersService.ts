@@ -117,7 +117,7 @@ export async function getAllOrders(): Promise<Order[]> {
     }
 
     const data = await response.json();
-    return data.orders || [];
+    return data.data || data.orders || [];
   } catch (error) {
     console.error('❌ Erro ao buscar todos os pedidos:', error);
     throw error;
@@ -136,7 +136,7 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
     });
     if (!response.ok) throw new Error('Failed to fetch user orders');
     const data = await response.json();
-    return data.orders || [];
+    return data.data || data.orders || [];
   } catch (error) {
     console.error('❌ Erro ao buscar pedidos do usuário:', error);
     throw error;
