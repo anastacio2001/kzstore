@@ -146,18 +146,6 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
     setShowSharePopup(false);
   };
 
-  const trackShare = async (platform: string) => {
-    try {
-      await fetch(`/api/blog/${postId}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform })
-      });
-    } catch (error) {
-      console.error('Error tracking share:', error);
-    }
-  };
-
   const copyLink = () => {
     navigator.clipboard.writeText(currentUrl);
     trackShare('copy');
