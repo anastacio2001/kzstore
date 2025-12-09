@@ -227,17 +227,41 @@ export default function App() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const authToken = urlParams.get('auth_token');
+    const oauthError = urlParams.get('error');
+    
+    if (oauthError) {
+      console.error('❌ [OAuth] Erro recebido:', oauthError);
+      const errorMessages: Record<string, string> = {
+        'oauth_failed': 'Falha na autenticação. Tente novamente.',
+        'oauth_no_email': 'Não foi possível obter seu email. Verifique as permissões.',
+        'facebook_denied': 'Você cancelou o login com Facebook.',
+        'facebook_not_configured': 'Login com Facebook não está configurado.',
+        'facebook_token_failed': 'Erro ao conectar com Facebook.',
+        'facebook_no_email': 'Facebook não forneceu seu email. Verifique as permissões.',
+        'oauth_error': 'Erro ao processar login. Tente novamente.'
+      };
+      showToast(errorMessages[oauthError] || 'Erro ao fazer login.', 'error');
+      
+      // Remover erro da URL
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+      return;
+    }
     
     if (authToken) {
       console.log('🔑 [OAuth] Token recebido do callback OAuth');
       
       // Salvar token no localStorage
       localStorage.setItem('user', JSON.stringify({ access_token: authToken }));
+      localStorage.setItem('kzstore_auth_token', authToken);
       
       // Recarregar sessão do usuário
       checkSession().then(() => {
         console.log('✅ [OAuth] Sessão recarregada com sucesso');
-        showToast('Login realizado com sucesso!', 'success');
+        showToast('Login realizado com sucesso! Bem-vindo(a)!', 'success');
+        
+        // Redirecionar para página inicial
+        setCurrentPage('home');
       }).catch(err => {
         console.error('❌ [OAuth] Erro ao recarregar sessão:', err);
         showToast('Erro ao fazer login. Tente novamente.', 'error');
