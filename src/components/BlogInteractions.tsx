@@ -21,57 +21,100 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
   useEffect(() => {
     loadLikes();
     loadComments();
+    trackView();
   }, [postId]);
 
-  const loadLikes = () => {
-    const storedLikes = localStorage.getItem(`blog-likes-${postId}`);
-    if (storedLikes) {
-      setLikes(parseInt(storedLikes));
+  const trackView = async () => {
+    try {
+      await fetch(`/api/blog/${postId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionStorage.getItem('sessionId') || Math.random().toString(36)
+        })
+      });
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
+  };
+
+  const loadLikes = async () => {
+    try {
+      const response = await fetch(`/api/blog/${postId}/likes`);
+      if (response.ok) {
+        const data = await response.json();
+        setLikes(Number(data.count) || 0);
+      }
+    } catch (error) {
+      console.error('Error loading likes:', error);
     }
     const hasLikedBefore = localStorage.getItem(`blog-liked-${postId}`);
     setHasLiked(hasLikedBefore === 'true');
   };
 
-  const loadComments = () => {
-    const storedComments = localStorage.getItem(`blog-comments-${postId}`);
-    if (storedComments) {
-      setComments(JSON.parse(storedComments));
+  const loadComments = async () => {
+    try {
+      const response = await fetch(`/api/blog/${postId}/comments`);
+      if (response.ok) {
+        const data = await response.json();
+        setComments(data.comments || []);
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
     }
   };
 
-  const handleLike = () => {
-    if (hasLiked) {
-      setLikes(prev => prev - 1);
-      setHasLiked(false);
-      localStorage.setItem(`blog-likes-${postId}`, String(likes - 1));
-      localStorage.removeItem(`blog-liked-${postId}`);
-    } else {
-      setLikes(prev => prev + 1);
-      setHasLiked(true);
-      localStorage.setItem(`blog-likes-${postId}`, String(likes + 1));
-      localStorage.setItem(`blog-liked-${postId}`, 'true');
-    }
-  };
-
-  const handleSubmitComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim() || !commentName.trim()) return;
-
-    const comment = {
-      id: Date.now(),
-      name: commentName,
-      email: commentEmail,
-      text: newComment,
-      date: new Date().toISOString(),
-    };
-
-    const updatedComments = [...comments, comment];
-    setComments(updatedComments);
-    localStorage.setItem(`blog-comments-${postId}`, JSON.stringify(updatedComments));
+  const handleLike = async () => {
+    const userEmail = localStorage.getItem('userEmail') || 'guest@kzstore.ao';
     
-    setNewComment('');
-    setCommentName('');
-    setCommentEmail('');
+    try {
+      const response = await fetch(`/api/blog/${postId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setHasLiked(data.liked);
+        localStorage.setItem(`blog-liked-${postId}`, data.liked ? 'true' : 'false');
+        loadLikes(); // Reload count from server
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !commentName.trim() || !commentEmail.trim()) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/blog/${postId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          authorName: commentName,
+          authorEmail: commentEmail,
+          content: newComment
+        })
+      });
+      
+      if (response.ok) {
+        alert('Comentário enviado para moderação!');
+        setNewComment('');
+        setCommentName('');
+        setCommentEmail('');
+        // Reload comments
+        loadComments();
+      }
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      alert('Erro ao enviar comentário. Tente novamente.');
+    }
   };
 
   const currentUrl = postUrl || window.location.href;
@@ -85,9 +128,41 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
     whatsapp: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
   };
 
+  const trackShare = async (platform: string) => {
+    try {
+      await fetch(`/api/blog/${postId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform })
+      });
+    } catch (error) {
+      console.error('Error tracking share:', error);
+    }
+  };
+
+  const handleShare = (platform: string, url: string) => {
+    trackShare(platform);
+    window.open(url, '_blank', 'width=600,height=400');
+    setShowSharePopup(false);
+  };
+
+  const trackShare = async (platform: string) => {
+    try {
+      await fetch(`/api/blog/${postId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform })
+      });
+    } catch (error) {
+      console.error('Error tracking share:', error);
+    }
+  };
+
   const copyLink = () => {
     navigator.clipboard.writeText(currentUrl);
+    trackShare('copy');
     alert('Link copiado para a área de transferência!');
+    setShowSharePopup(false);
   };
 
   return (
@@ -212,45 +287,49 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
             <p className="text-gray-600 text-sm mb-6">{postTitle}</p>
 
             <div className="space-y-3">
-              <a
-                href={shareLinks.facebook}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  trackShare('facebook');
+                  window.open(shareLinks.facebook, '_blank', 'noopener,noreferrer');
+                }}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1877F2] text-white hover:bg-[#1864D9] transition-colors"
               >
                 <Facebook className="size-5" />
                 <span className="font-medium">Compartilhar no Facebook</span>
-              </a>
+              </button>
 
-              <a
-                href={shareLinks.twitter}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  trackShare('twitter');
+                  window.open(shareLinks.twitter, '_blank', 'noopener,noreferrer');
+                }}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1DA1F2] text-white hover:bg-[#1A8CD8] transition-colors"
               >
                 <Twitter className="size-5" />
                 <span className="font-medium">Compartilhar no Twitter</span>
-              </a>
+              </button>
 
-              <a
-                href={shareLinks.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  trackShare('linkedin');
+                  window.open(shareLinks.linkedin, '_blank', 'noopener,noreferrer');
+                }}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#0A66C2] text-white hover:bg-[#095196] transition-colors"
               >
                 <Linkedin className="size-5" />
                 <span className="font-medium">Compartilhar no LinkedIn</span>
-              </a>
+              </button>
 
-              <a
-                href={shareLinks.whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  trackShare('whatsapp');
+                  window.open(shareLinks.whatsapp, '_blank', 'noopener,noreferrer');
+                }}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#25D366] text-white hover:bg-[#1FB855] transition-colors"
               >
                 <MessageCircle className="size-5" />
                 <span className="font-medium">Compartilhar no WhatsApp</span>
-              </a>
+              </button>
 
               <button
                 onClick={copyLink}
