@@ -443,7 +443,7 @@ router.get('/:postId/comments', async (req: Request, res: Response) => {
     const { postId } = req.params;
 
     const comments = await prisma.$queryRaw`
-      SELECT * FROM blog_comments
+      SELECT * FROM blog_post_comments
       WHERE post_id = ${postId} AND status = 'approved'
       ORDER BY created_at DESC
     `;
@@ -461,7 +461,11 @@ router.get('/:postId/comments', async (req: Request, res: Response) => {
 router.post('/:postId/comments', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const { content, author_name, author_email, parent_id } = req.body;
+    // Accept both camelCase and snake_case
+    const content = req.body.content;
+    const author_name = req.body.author_name || req.body.authorName;
+    const author_email = req.body.author_email || req.body.authorEmail;
+    const parent_id = req.body.parent_id || req.body.parentId;
 
     console.log('📝 [BLOG] Creating comment:', { postId, content: content?.substring(0, 50), author_name, author_email, parent_id });
 
@@ -474,7 +478,7 @@ router.post('/:postId/comments', async (req: Request, res: Response) => {
     const id = `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     await prisma.$executeRaw`
-      INSERT INTO blog_comments (id, post_id, parent_id, author_name, author_email, content, status)
+      INSERT INTO blog_post_comments (id, post_id, parent_id, author_name, author_email, content, status)
       VALUES (${id}, ${postId}, ${parent_id || null}, ${author_name}, ${author_email}, ${content}, 'pending')
     `;
 
@@ -525,12 +529,12 @@ router.post('/:postId/share', async (req: Request, res: Response) => {
     const { postId } = req.params;
     const { platform } = req.body;
     const id = `share-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+    const userIp = req.ip || req.headers['x-forwarded-for'] as string || 'unknown';
 
-    await prisma.$executeRaw`
-      INSERT INTO blog_shares (id, post_id, platform, session_id)
-      VALUES (${id}, ${postId}, ${platform}, ${sessionId})
-    `;
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO blog_post_shares (id, post_id, platform, user_ip)
+      VALUES ($1, $2, $3, $4)
+    `, id, postId, platform, userIp);
 
     res.json({ success: true });
   } catch (error: any) {

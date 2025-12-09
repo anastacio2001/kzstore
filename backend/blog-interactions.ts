@@ -10,6 +10,17 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Debug middleware
+router.use((req, res, next) => {
+  console.log('🔍 [DEBUG] Blog Interactions Request:', {
+    method: req.method,
+    path: req.path,
+    body: req.body,
+    contentType: req.get('content-type')
+  });
+  next();
+});
+
 // ============ LIKES ============
 
 // Get likes count for a post
@@ -21,7 +32,8 @@ router.get('/blog/:postId/likes', async (req, res) => {
       SELECT COUNT(*) as count FROM blog_post_likes WHERE post_id = ${postId}
     `;
     
-    res.json({ count: count[0]?.count || 0 });
+    // Convert BigInt to Number
+    res.json({ count: Number(count[0]?.count || 0) });
   } catch (error) {
     console.error('Error fetching likes:', error);
     res.status(500).json({ error: 'Failed to fetch likes' });
@@ -124,12 +136,21 @@ router.get('/blog/:postId/comments', async (req, res) => {
 router.post('/blog/:postId/comments', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { authorName, authorEmail, authorWebsite, content, parentId } = req.body;
+    // Accept both camelCase and snake_case
+    const authorName = req.body.authorName || req.body.author_name;
+    const authorEmail = req.body.authorEmail || req.body.author_email;
+    const authorWebsite = req.body.authorWebsite || req.body.author_website;
+    const content = req.body.content;
+    const parentId = req.body.parentId || req.body.parent_id;
+    
     const userIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
     
+    console.log('📝 [BLOG] Creating comment:', { postId, content, author_name: authorName, author_email: authorEmail, parent_id: parentId });
+    console.log('❌ [BLOG] Missing fields:', { hasContent: !!content, hasName: !!authorName, hasEmail: !!authorEmail });
+    
     if (!authorName || !authorEmail || !content) {
-      return res.status(400).json({ error: 'Name, email and content required' });
+      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     }
 
     const commentId = uuidv4();
@@ -148,6 +169,31 @@ router.post('/blog/:postId/comments', async (req, res) => {
   } catch (error) {
     console.error('❌ [BLOG] Error creating comment:', error);
     res.status(500).json({ error: 'Erro ao criar comentário' });
+  }
+});
+
+// Admin: Get all comments (pending and approved)
+router.get('/admin/comments', async (req, res) => {
+  try {
+    const { status } = req.query; // 'pending', 'approved', or undefined for all
+    
+    let query = `
+      SELECT c.*, p.title as post_title
+      FROM blog_post_comments c
+      LEFT JOIN blog_posts p ON c.post_id = p.id
+    `;
+    
+    if (status) {
+      query += ` WHERE c.status = $1`;
+      const comments = await prisma.$queryRawUnsafe(query + ` ORDER BY c.created_at DESC`, status);
+      return res.json({ comments });
+    }
+    
+    const comments = await prisma.$queryRawUnsafe(query + ` ORDER BY c.created_at DESC`);
+    res.json({ comments });
+  } catch (error) {
+    console.error('Error fetching admin comments:', error);
+    res.status(500).json({ error: 'Failed to fetch comments' });
   }
 });
 

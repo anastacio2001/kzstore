@@ -141,8 +141,8 @@ router.get('/analytics/overview', async (req, res) => {
     let result;
     if (range !== 'all') {
       const days = parseInt(range as string);
-      query += ` AND bp.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`;
-      result = await prisma.$queryRawUnsafe(query, days) as any[];
+      query += ` AND bp.created_at >= NOW() - INTERVAL '${days} days'`;
+      result = await prisma.$queryRawUnsafe(query) as any[];
     } else {
       result = await prisma.$queryRawUnsafe(query) as any[];
     }
@@ -175,15 +175,17 @@ router.get('/analytics/top-posts', async (req, res) => {
     let posts;
     if (range !== 'all') {
       const days = parseInt(range as string);
-      query += ` AND bp.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      const limitNum = parseInt(limit as string);
+      query += ` AND bp.created_at >= NOW() - INTERVAL '${days} days'
       ORDER BY bp.views_count DESC
-      LIMIT ?`;
-      posts = await prisma.$queryRawUnsafe(query, days, parseInt(limit as string)) as any[];
+      LIMIT ${limitNum}`;
+      posts = await prisma.$queryRawUnsafe(query) as any[];
     } else {
+      const limitNum = parseInt(limit as string);
       query += `
       ORDER BY bp.views_count DESC
-      LIMIT ?`;
-      posts = await prisma.$queryRawUnsafe(query, parseInt(limit as string)) as any[];
+      LIMIT ${limitNum}`;
+      posts = await prisma.$queryRawUnsafe(query) as any[];
     }
 
     res.json(convertBigIntToNumber({ posts }));
@@ -219,6 +221,7 @@ router.get('/analytics/categories', async (req, res) => {
 router.get('/analytics/top-searches', async (req, res) => {
   try {
     const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
 
     const searches = await prisma.$queryRawUnsafe(`
       SELECT 
@@ -229,8 +232,8 @@ router.get('/analytics/top-searches', async (req, res) => {
       WHERE results_count > 0
       GROUP BY search_query
       ORDER BY search_count DESC
-      LIMIT ?
-    `, parseInt(limit as string)) as any[];
+      LIMIT ${limitNum}
+    `) as any[];
 
     res.json(convertBigIntToNumber({ searches }));
   } catch (error) {
@@ -243,6 +246,7 @@ router.get('/analytics/top-searches', async (req, res) => {
 router.get('/analytics/searches-no-results', async (req, res) => {
   try {
     const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
 
     const searches = await prisma.$queryRawUnsafe(`
       SELECT 
@@ -253,8 +257,8 @@ router.get('/analytics/searches-no-results', async (req, res) => {
       WHERE results_count = 0
       GROUP BY search_query
       ORDER BY search_count DESC
-      LIMIT ?
-    `, parseInt(limit as string)) as any[];
+      LIMIT ${limitNum}
+    `) as any[];
 
     res.json(convertBigIntToNumber({ searches }));
   } catch (error) {
