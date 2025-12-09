@@ -140,7 +140,7 @@ router.get('/analytics/overview', async (req, res) => {
     
     let result;
     if (range !== 'all') {
-      const days = parseInt(range as string);
+      const days = parseInt(String(range).replace(/\D/g, '')) || 30;
       query += ` AND bp.created_at >= NOW() - INTERVAL '${days} days'`;
       result = await prisma.$queryRawUnsafe(query) as any[];
     } else {
@@ -174,14 +174,14 @@ router.get('/analytics/top-posts', async (req, res) => {
     
     let posts;
     if (range !== 'all') {
-      const days = parseInt(range as string);
-      const limitNum = parseInt(limit as string);
+      const days = parseInt(String(range).replace(/\D/g, '')) || 30;
+      const limitNum = parseInt(String(limit)) || 10;
       query += ` AND bp.created_at >= NOW() - INTERVAL '${days} days'
       ORDER BY bp.views_count DESC
       LIMIT ${limitNum}`;
       posts = await prisma.$queryRawUnsafe(query) as any[];
     } else {
-      const limitNum = parseInt(limit as string);
+      const limitNum = parseInt(String(limit)) || 10;
       query += `
       ORDER BY bp.views_count DESC
       LIMIT ${limitNum}`;
