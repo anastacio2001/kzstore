@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 // ============ LIKES ============
 
 // Get likes count for a post
-router.get('/posts/:postId/likes', async (req, res) => {
+router.get('/blog/:postId/likes', async (req, res) => {
   try {
     const { postId } = req.params;
     
@@ -29,7 +29,7 @@ router.get('/posts/:postId/likes', async (req, res) => {
 });
 
 // Toggle like on a post
-router.post('/posts/:postId/like', async (req, res) => {
+router.post('/blog/:postId/like', async (req, res) => {
   try {
     const { postId } = req.params;
     const { userEmail } = req.body;
@@ -87,41 +87,41 @@ router.post('/posts/:postId/like', async (req, res) => {
 // ============ COMMENTS ============
 
 // Get comments for a post
-router.get('/posts/:postId/comments', async (req, res) => {
+router.get('/blog/:postId/comments', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { status = 'approved' } = req.query;
+    const status = (req.query.status as string) || 'approved';
     
-    const comments = await prisma.$queryRaw`
+    const comments: any[] = await prisma.$queryRawUnsafe(`
       SELECT 
         c.*,
-        (SELECT COUNT(*) FROM blog_post_comments WHERE parent_id = c.id) as replies_count
+        (SELECT COUNT(*)::int FROM blog_post_comments WHERE parent_id = c.id) as replies_count
       FROM blog_post_comments c
-      WHERE c.post_id = ${postId} 
-        AND c.status = ${status}
+      WHERE c.post_id = $1
+        AND c.status = $2
         AND c.parent_id IS NULL
       ORDER BY c.created_at DESC
-    `;
+    `, postId, status);
     
     // Get replies for each comment
     for (const comment of comments) {
-      const replies = await prisma.$queryRaw`
+      const replies: any[] = await prisma.$queryRawUnsafe(`
         SELECT * FROM blog_post_comments
-        WHERE parent_id = ${comment.id} AND status = 'approved'
+        WHERE parent_id = $1 AND status = 'approved'
         ORDER BY created_at ASC
-      `;
+      `, comment.id);
       comment.replies = replies;
     }
     
     res.json({ comments });
   } catch (error) {
-    console.error('Error fetching comments:', error);
-    res.status(500).json({ error: 'Failed to fetch comments' });
+    console.error('❌ [BLOG] Error fetching comments:', error);
+    res.status(500).json({ error: 'Erro ao buscar comentários' });
   }
 });
 
 // Create new comment
-router.post('/posts/:postId/comments', async (req, res) => {
+router.post('/blog/:postId/comments', async (req, res) => {
   try {
     const { postId } = req.params;
     const { authorName, authorEmail, authorWebsite, content, parentId } = req.body;
@@ -134,14 +134,11 @@ router.post('/posts/:postId/comments', async (req, res) => {
 
     const commentId = uuidv4();
     
-    await prisma.$executeRaw`
+    await prisma.$executeRawUnsafe(`
       INSERT INTO blog_post_comments 
       (id, post_id, parent_id, author_name, author_email, author_website, content, status, user_ip, user_agent)
-      VALUES (
-        ${commentId}, ${postId}, ${parentId || null}, ${authorName}, ${authorEmail}, 
-        ${authorWebsite || null}, ${content}, 'pending', ${userIp}, ${userAgent || null}
-      )
-    `;
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)
+    `, commentId, postId, parentId || null, authorName, authorEmail, authorWebsite || null, content, userIp, userAgent || null);
     
     res.json({ 
       message: 'Comment submitted for moderation',
@@ -149,8 +146,8 @@ router.post('/posts/:postId/comments', async (req, res) => {
       status: 'pending'
     });
   } catch (error) {
-    console.error('Error creating comment:', error);
-    res.status(500).json({ error: 'Failed to create comment' });
+    console.error('❌ [BLOG] Error creating comment:', error);
+    res.status(500).json({ error: 'Erro ao criar comentário' });
   }
 });
 
@@ -207,7 +204,7 @@ router.delete('/admin/comments/:commentId', async (req, res) => {
 // ============ SHARES ============
 
 // Track share
-router.post('/posts/:postId/share', async (req, res) => {
+router.post('/blog/:postId/share', async (req, res) => {
   try {
     const { postId } = req.params;
     const { platform } = req.body;
@@ -219,29 +216,29 @@ router.post('/posts/:postId/share', async (req, res) => {
 
     const shareId = uuidv4();
     
-    await prisma.$executeRaw`
+    await prisma.$executeRawUnsafe(`
       INSERT INTO blog_post_shares (id, post_id, platform, user_ip)
-      VALUES (${shareId}, ${postId}, ${platform}, ${userIp})
-    `;
+      VALUES ($1, $2, $3, $4)
+    `, shareId, postId, platform, userIp);
     
     // Update counter
-    await prisma.$executeRaw`
+    await prisma.$executeRawUnsafe(`
       UPDATE blog_posts 
       SET shares_count = shares_count + 1
-      WHERE id = ${postId}
-    `;
+      WHERE id = $1
+    `, postId);
     
     res.json({ message: 'Share tracked' });
   } catch (error) {
-    console.error('Error tracking share:', error);
-    res.status(500).json({ error: 'Failed to track share' });
+    console.error('❌ [BLOG] Error tracking share:', error);
+    res.status(500).json({ error: 'Erro ao registrar compartilhamento' });
   }
 });
 
 // ============ VIEWS & ANALYTICS ============
 
 // Track view
-router.post('/posts/:postId/view', async (req, res) => {
+router.post('/blog/:postId/view', async (req, res) => {
   try {
     const { postId } = req.params;
     const { sessionId, viewDuration } = req.body;
@@ -275,38 +272,38 @@ router.post('/posts/:postId/view', async (req, res) => {
 });
 
 // Get post analytics
-router.get('/posts/:postId/analytics', async (req, res) => {
+router.get('/blog/:postId/analytics', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { days = 30 } = req.query;
+    const days = Number(req.query.days) || 30;
     
-    const post = await prisma.$queryRaw`
-      SELECT views_count, likes_count, comments_count, shares_count, avg_read_time
+    const post: any[] = await prisma.$queryRawUnsafe(`
+      SELECT views_count, likes_count, comments_count, shares_count
       FROM blog_posts
-      WHERE id = ${postId}
-    `;
+      WHERE id = $1
+    `, postId);
     
-    const viewsByDay = await prisma.$queryRaw`
-      SELECT DATE(created_at) as date, COUNT(*) as views
+    const viewsByDay: any[] = await prisma.$queryRawUnsafe(`
+      SELECT DATE(created_at) as date, COUNT(*)::int as views
       FROM blog_post_views
-      WHERE post_id = ${postId}
-        AND created_at >= DATE_SUB(NOW(), INTERVAL ${Number(days)} DAY)
+      WHERE post_id = $1
+        AND created_at >= NOW() - INTERVAL '1 day' * $2
       GROUP BY DATE(created_at)
       ORDER BY date DESC
-    `;
+    `, postId, days);
     
-    const sharesByPlatform = await prisma.$queryRaw`
-      SELECT platform, COUNT(*) as count
+    const sharesByPlatform: any[] = await prisma.$queryRawUnsafe(`
+      SELECT platform, COUNT(*)::int as count
       FROM blog_post_shares
-      WHERE post_id = ${postId}
+      WHERE post_id = $1
       GROUP BY platform
-    `;
+    `, postId);
     
-    const avgReadTime = await prisma.$queryRaw`
+    const avgReadTime: any[] = await prisma.$queryRawUnsafe(`
       SELECT AVG(view_duration) as avg_duration
       FROM blog_post_views
-      WHERE post_id = ${postId} AND view_duration IS NOT NULL
-    `;
+      WHERE post_id = $1 AND view_duration IS NOT NULL
+    `, postId);
     
     res.json({
       totals: post[0] || {},
