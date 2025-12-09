@@ -236,8 +236,12 @@ router.get('/analytics/top-searches', async (req, res) => {
     `) as any[];
 
     res.json(convertBigIntToNumber({ searches }));
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching top searches:', error);
+    // Return empty array if table doesn't exist
+    if (error?.meta?.code === '42P01' || error?.code === 'P2010') {
+      return res.json({ searches: [] });
+    }
     res.status(500).json({ error: 'Failed to fetch top searches' });
   }
 });
@@ -261,8 +265,12 @@ router.get('/analytics/searches-no-results', async (req, res) => {
     `) as any[];
 
     res.json(convertBigIntToNumber({ searches }));
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching searches with no results:', error);
+    // Return empty array if table doesn't exist
+    if (error?.meta?.code === '42P01' || error?.code === 'P2010') {
+      return res.json({ searches: [] });
+    }
     res.status(500).json({ error: 'Failed to fetch searches with no results' });
   }
 });
