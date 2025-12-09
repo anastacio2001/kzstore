@@ -52,3 +52,4 @@ cookies.txt
 .vercel
 .env*.local
 .env.yaml
+setup-cloud-run-env.sh

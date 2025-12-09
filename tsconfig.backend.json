@@ -4,7 +4,6 @@
     "target": "ES2020",
     "lib": ["ES2020"],
     "outDir": "./dist/backend",
-    "rootDir": ".",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "allowJs": true,
@@ -22,6 +21,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["server.ts", "backend/**/*", "src/utils/prisma/**/*"],
-  "exclude": ["node_modules", "dist", "backend/test-*.ts", "backend/create-database.ts", "backend/import-data.ts", "src/**/*.tsx", "src/**/*.ts", "src/components/**/*", "src/pages/**/*", "src/services/**/*"]
+  "include": ["server.ts", "backend/**/*.ts"],
+  "exclude": ["node_modules", "dist", "backend/test-*.ts", "backend/test-*.js", "backend/create-database.ts", "backend/import-data.ts", "backend/**/*.js", "src/**/*"]
 }

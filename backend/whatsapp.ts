@@ -2,7 +2,7 @@
 
 import Twilio from 'twilio';
 import { Request, Response } from 'express';
-import { getPrismaClient } from '../src/utils/prisma/client';
+import { getPrismaClient } from './utils/prisma/client';
 import { whatsappQueue } from './queue';
 
 const prisma = getPrismaClient();
@@ -39,33 +39,35 @@ export async function sendWhatsAppTemplate({
   body?: string; // plain message body
   from?: string; // optional override
 }) {
-  if (!client) throw new Error('Twilio client not initialized');
+  if (!client) {
+    console.error('❌ [WHATSAPP] Twilio client not initialized');
+    throw new Error('Twilio client not initialized');
+  }
+  
   try {
     const fromNumber = from || whatsappFrom;
     if (!fromNumber) throw new Error('TWILIO_WHATSAPP_NUMBER is not configured');
 
-    // If contentSid is provided, use Twilio Conversations / Content API; otherwise, use messages.create with body
-    if (contentSid) {
-      // Twilio sends template-based messages using messages.create by referencing contentSid in the Content attribute
-      // The Twilio message API supports contentSid starting version '2022-11-06' or similar; we'll use the 'contentSid' key under 'content' wrapper
-      const params: any = {
-        from: fromNumber,
-        to,
-        // Twilio's SDK for templates may differ; fallback use body with variables injection if unavailable
-      };
-      // If the Twilio flexible APIs do not support `contentSid` directly in this SDK, fallback to send body text
-      if (typeof contentVariables === 'string') {
-        params.body = contentVariables;
-      } else if (contentVariables) {
-        // Slight fallback - if contentVariables is provided, convert to string map in the message body or use content Sid metadata
-        params.body = JSON.stringify(contentVariables);
-      }
-      if (body) params.body = body;
+    console.log(`📱 [WHATSAPP] Enviando mensagem para: ${to}`);
 
-      const result = await client.messages.create(params);
-      // Save message to DB if prisma available
-      try {
-        await prisma.whatsAppMessage.create({
+    // Timeout de 10 segundos para evitar travamentos
+    const sendPromise = async () => {
+      if (contentSid) {
+        const params: any = {
+          from: fromNumber,
+          to,
+        };
+        if (typeof contentVariables === 'string') {
+          params.body = contentVariables;
+        } else if (contentVariables) {
+          params.body = JSON.stringify(contentVariables);
+        }
+        if (body) params.body = body;
+
+        const result = await client!.messages.create(params);
+        
+        // Save to DB (non-blocking)
+        prisma.whatsAppMessage.create({
           data: {
             message_sid: result?.sid,
             to,
@@ -75,17 +77,15 @@ export async function sendWhatsAppTemplate({
             status: 'queued',
             metadata: { raw: result }
           }
-        });
-      } catch (err) {
-        console.error('Error logging WhatsApp message to DB', err);
-      }
-      return result;
-      return result;
-    } else {
-      if (!body) throw new Error('Either contentSid or body must be provided');
-      const result = await client.messages.create({ from: fromNumber, to, body });
-      try {
-        await prisma.whatsAppMessage.create({
+        }).catch(err => console.error('Error logging WhatsApp to DB:', err));
+        
+        return result;
+      } else {
+        if (!body) throw new Error('Either contentSid or body must be provided');
+        const result = await client!.messages.create({ from: fromNumber, to, body });
+        
+        // Save to DB (non-blocking)
+        prisma.whatsAppMessage.create({
           data: {
             message_sid: result?.sid,
             to,
@@ -95,14 +95,23 @@ export async function sendWhatsAppTemplate({
             status: 'queued',
             metadata: { raw: result }
           }
-        });
-      } catch (err) {
-        console.error('Error logging WhatsApp message to DB', err);
+        }).catch(err => console.error('Error logging WhatsApp to DB:', err));
+        
+        return result;
       }
-      return result;
-    }
+    };
+
+    // Timeout wrapper
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Twilio request timeout after 10s')), 10000)
+    );
+
+    const result = await Promise.race([sendPromise(), timeoutPromise]);
+    console.log(`✅ [WHATSAPP] Mensagem enviada com sucesso para: ${to}`);
+    return result;
+    
   } catch (err) {
-    console.error('Error sending WhatsApp message via Twilio:', err);
+    console.error('❌ [WHATSAPP] Erro ao enviar mensagem:', err);
     throw err;
   }
 }
@@ -123,15 +132,23 @@ export async function sendOrderCreatedNotification(phone: string, orderNumber: s
 }
 
 export async function enqueueWhatsApp({ to, body, contentSid, contentVariables, meta }: any) {
-  if (process.env.REDIS_URL) {
+  // Verificar se Redis está REALMENTE disponível (não só configurado)
+  const redisAvailable = process.env.REDIS_URL && whatsappQueue;
+  
+  if (redisAvailable) {
     try {
       await whatsappQueue.add('send', { to, body, contentSid, contentVariables, meta }, { attempts: 3, backoff: { type: 'exponential', delay: 5000 } });
+      console.log(`📱 [WHATSAPP] Mensagem enfileirada no Redis para: ${to}`);
       return { enqueued: true };
     } catch (err) {
-      console.error('Error enqueuing message', err);
-      throw err;
+      console.error('❌ [WHATSAPP] Erro ao enfileirar no Redis, enviando diretamente:', err);
+      // Fallback: enviar diretamente se Redis falhar
+      return sendWhatsAppTemplate({ to, body, contentSid, contentVariables });
     }
   }
+  
+  // Se Redis não está disponível, enviar diretamente
+  console.log(`📱 [WHATSAPP] Redis não disponível, enviando diretamente para: ${to}`);
   return sendWhatsAppTemplate({ to, body, contentSid, contentVariables });
 }
 

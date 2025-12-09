@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
-import { getPrismaClient } from '../src/utils/prisma/client';
+import { getPrismaClient } from './utils/prisma/client';
 
 const router = Router();
 const prisma = getPrismaClient();

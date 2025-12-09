@@ -12,11 +12,12 @@ import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import { Storage } from '@google-cloud/storage';
-import { getPrismaClient } from './src/utils/prisma/client';
+import { getPrismaClient } from './backend/utils/prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import authRoutes, { authMiddleware, requireAdmin } from './backend/auth';
+import authRoutes, { authMiddleware, requireAdmin, optionalAuthMiddleware } from './backend/auth';
 import authOAuthRoutes from './backend/auth-oauth';
 import blogRoutes from './backend/blog';
+import blogAdminRoutes from './backend/admin/blog-admin.js';
 import aiChatRoutes from './backend/ai-chat';
 import { 
   generateTempPassword, 
@@ -131,7 +132,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Google Cloud Storage configuration
 const storage = new Storage();
-const bucketName = 'kzstore-uploads';
+const bucketName = 'kzstore-images'; // Bucket com todas as imagens de produtos
 const bucket = storage.bucket(bucketName);
 
 // Criar pasta de uploads local para fallback (desenvolvimento)
@@ -214,7 +215,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://www.google-analytics.com", "https://storage.googleapis.com"],
+      connectSrc: ["'self'", "https://www.google-analytics.com", "https://region1.google-analytics.com", "https://storage.googleapis.com"],
       frameSrc: ["'self'", "https://www.google.com"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
@@ -290,6 +291,7 @@ app.use('/api/auth', authOAuthRoutes); // OAuth routes (Google, Facebook)
 
 // Rotas de Blog
 app.use('/api/blog', blogRoutes);
+app.use('/api/admin/blog', blogAdminRoutes);
 
 // Rotas de AI Chat
 app.use('/api/ai', aiChatRoutes);
@@ -478,8 +480,18 @@ app.get('/api/products', cacheMiddleware(300), paginationMiddleware, async (req,
     // Converter Decimals para numbers
     const productsConverted = convertDecimalsToNumbers(products);
 
+    // Transformar flashSales array para flash_sale objeto (compatibilidade frontend)
+    const productsWithFlashSale = productsConverted.map((product: any) => {
+      const activeFlashSale = product.flashSales?.[0] || null;
+      const { flashSales, ...productWithoutFlashSales } = product;
+      return {
+        ...productWithoutFlashSales,
+        flash_sale: activeFlashSale, // Adicionar flash_sale como objeto único
+      };
+    });
+
     // Resposta paginada
-    const response = createPaginatedResponse(productsConverted, total, page, limit);
+    const response = createPaginatedResponse(productsWithFlashSale, total, page, limit);
 
     res.json(response);
   } catch (error: any) {
@@ -516,7 +528,15 @@ app.get('/api/products/:id', async (req, res) => {
     // Converter Decimals para numbers
     const productConverted = convertDecimalsToNumbers(product);
     
-    res.json({ product: productConverted });
+    // Transformar flashSales array para flash_sale objeto (compatibilidade frontend)
+    const activeFlashSale = productConverted.flashSales?.[0] || null;
+    const { flashSales, ...productWithoutFlashSales } = productConverted;
+    const productWithFlashSale = {
+      ...productWithoutFlashSales,
+      flash_sale: activeFlashSale,
+    };
+    
+    res.json({ product: productWithFlashSale });
   } catch (error: any) {
     console.error('Error fetching product:', error);
     res.status(500).json({ error: error.message });
@@ -525,7 +545,7 @@ app.get('/api/products/:id', async (req, res) => {
 
 // POST /api/products - Criar produto (PROTEGIDO - Apenas Admin)
 // POST /api/products - Criar produto (PROTEGIDO - Apenas Admin)
-app.post('/api/products', requireAdmin, validate(schemas.createProductSchema), async (req, res) => {
+app.post('/api/products', requireAdmin, async (req, res) => {
   try {
     const product = await prisma.product.create({
       data: req.body,
@@ -546,7 +566,7 @@ app.post('/api/products', requireAdmin, validate(schemas.createProductSchema), a
 });
 
 // PUT /api/products/:id - Atualizar produto (PROTEGIDO - Apenas Admin)
-app.put('/api/products/:id', requireAdmin, validate(schemas.updateProductSchema), async (req, res) => {
+app.put('/api/products/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const product = await prisma.product.update({
@@ -564,6 +584,33 @@ app.put('/api/products/:id', requireAdmin, validate(schemas.updateProductSchema)
     res.json({ product: productConverted });
   } catch (error: any) {
     console.error('Error updating product:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH /api/products/:id/image - Atualizar apenas imagem (MIGRAÇÃO)
+app.patch('/api/products/:id/image', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imagem_url } = req.body;
+    
+    if (!imagem_url || typeof imagem_url !== 'string') {
+      return res.status(400).json({ error: 'imagem_url é obrigatório' });
+    }
+    
+    const product = await prisma.product.update({
+      where: { id },
+      data: { imagem_url },
+    });
+    
+    const productConverted = convertDecimalsToNumbers(product);
+
+    // Invalidar cache de produtos
+    await invalidateCache('cache:/api/products*');
+
+    res.json({ product: productConverted });
+  } catch (error: any) {
+    console.error('Error updating product image:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -662,8 +709,6 @@ app.get('/api/orders', authMiddleware, paginationMiddleware, async (req: any, re
     const { page, limit, sort, order } = getPaginationParams(req.query);
     const reqUserId = req.userId as string;
     const reqUserRole = (req.userRole || 'customer') as string;
-
-    debugLog('📋 [GET /api/orders] Query params:', { user_id, user_email, reqUserId, reqUserRole, page, limit });
 
     const where: any = {};
 
@@ -772,8 +817,8 @@ app.get('/api/orders/:id', authMiddleware, async (req: any, res) => {
   }
 });
 
-// POST /api/orders - Criar pedido
-app.post('/api/orders', authMiddleware, validate(schemas.createOrderSchema), async (req: any, res) => {
+// POST /api/orders - Criar pedido (permite guests)
+app.post('/api/orders', optionalAuthMiddleware, async (req: any, res) => {
   try {
     // Forçar user_id correto se autenticado
     let data = req.body;
@@ -797,19 +842,34 @@ app.post('/api/orders', authMiddleware, validate(schemas.createOrderSchema), asy
     
     // 📧 Enviar email de confirmação
     try {
-      // Buscar dados do cliente (primeiro tenta User, depois CustomerProfile)
-      let customer: any = await prisma.user.findUnique({
-        where: { id: order.user_id }
-      });
+      // Para guests, usar dados do próprio pedido. Para usuários logados, buscar perfil completo
+      let customerEmail = order.user_email;
+      let customerName = order.user_name;
       
-      if (!customer) {
-        customer = await prisma.customerProfile.findUnique({
+      // Se não for guest, tentar buscar dados completos do usuário
+      if (order.user_id && order.user_id !== 'guest') {
+        const user = await prisma.user.findUnique({
           where: { id: order.user_id }
         });
+        
+        if (user) {
+          customerEmail = user.email || customerEmail;
+          customerName = user.name || customerName;
+        } else {
+          // Tentar CustomerProfile
+          const customerProfile = await prisma.customerProfile.findUnique({
+            where: { id: order.user_id }
+          });
+          if (customerProfile) {
+            customerEmail = customerProfile.email || customerEmail;
+            customerName = customerProfile.nome || customerName;
+          }
+        }
       }
       
-      if (customer && customer.email) {
-        debugLog(`📧 [ORDERS] Enviando email de confirmação para: ${customer.email}`);
+      // Enviar email se tiver email válido
+      if (customerEmail) {
+        debugLog(`📧 [ORDERS] Enviando email de confirmação para: ${customerEmail} (${order.user_id === 'guest' ? 'GUEST' : 'USER'})`);
         debugLog(`📧 [ORDERS] Dados do pedido:`, {
           items: typeof order.items,
           shipping_address: typeof order.shipping_address
@@ -886,74 +946,193 @@ app.post('/api/orders', authMiddleware, validate(schemas.createOrderSchema), asy
         
         const emailHtml = generateOrderConfirmationEmail({
           orderId: order.order_number,
-          customerName: customer.name || customer.email,
+          customerName: customerName || customerEmail,
           items: items,
           total: Number(order.total),
           shippingAddress: shippingAddress
         });
         
         await sendEmail({
-          to: customer.email,
+          to: customerEmail,
           subject: '🎉 Pedido Confirmado - KZSTORE',
           html: emailHtml
         });
         
-        console.log(`✅ [ORDERS] Email de confirmação enviado com sucesso!`);
+        console.log(`✅ [ORDERS] Email de confirmação enviado para: ${customerEmail}`);
       } else {
-        console.log(`⚠️  [ORDERS] Cliente sem email, pulando envio`);
+        console.log(`⚠️  [ORDERS] Pedido sem email válido, pulando envio`);
       }
     } catch (emailError) {
       console.error('❌ [ORDERS] Erro ao enviar email de confirmação:', emailError);
       // Não falhar o pedido se o email falhar
     }
     
-    // 📱 Enviar notificação WhatsApp
-    try {
-      let phone: string | null = null;
-      
-      // Tentar pegar telefone do shipping_address
-      if (order.shipping_address) {
-        const addr = typeof order.shipping_address === 'string' 
-          ? JSON.parse(order.shipping_address) 
-          : order.shipping_address;
-        phone = addr?.phone || addr?.telefone || addr?.telefone_principal || null;
-      }
-      
-      // Se não encontrou, tentar pegar do perfil do cliente
-      if (!phone && order.user_email) {
-        const customer = await prisma.customerProfile.findUnique({ 
-          where: { email: order.user_email } 
-        });
-        if (customer) phone = customer.telefone || null;
-      }
-      
-      // Enviar WhatsApp se tiver telefone e configuração do Twilio
-      if (phone && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_NUMBER) {
-        console.log(`📱 [ORDERS] Enviando WhatsApp para: ${phone}`);
-        const message = `🎉 Pedido Confirmado - KZSTORE\n\nPedido: #${order.order_number}\nTotal: ${Number(order.total || 0).toLocaleString('pt-AO')} Kz\n\nObrigado pela sua compra!`;
+    // 📱 Enviar notificação WhatsApp para o CLIENTE (async - não bloqueia resposta)
+    (async () => {
+      try {
+        let phone: string | null = null;
         
-        await enqueueWhatsApp({ 
-          to: `whatsapp:${phone}`, 
-          body: message 
-        });
-        
-        console.log(`✅ [ORDERS] WhatsApp enviado com sucesso para ${phone}!`);
-      } else {
-        if (!phone) {
-          console.log(`⚠️  [ORDERS] Cliente sem telefone, pulando WhatsApp`);
-        } else {
-          console.log(`⚠️  [ORDERS] Twilio não configurado, pulando WhatsApp`);
+        // Tentar pegar telefone do shipping_address
+        if (order.shipping_address) {
+          const addr = typeof order.shipping_address === 'string' 
+            ? JSON.parse(order.shipping_address) 
+            : order.shipping_address;
+          phone = addr?.phone || addr?.telefone || addr?.telefone_principal || null;
         }
+        
+        // Se não encontrou, tentar pegar do perfil do cliente
+        if (!phone && order.user_email) {
+          const customer = await prisma.customerProfile.findUnique({ 
+            where: { email: order.user_email } 
+          });
+          if (customer) phone = customer.telefone || null;
+        }
+        
+        // Enviar WhatsApp se tiver telefone e configuração do Twilio
+        if (phone && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_NUMBER) {
+          console.log(`📱 [ORDERS] Iniciando envio WhatsApp para cliente: ${phone}`);
+          const message = `🎉 Pedido Confirmado - KZSTORE\n\nPedido: #${order.order_number}\nTotal: ${Number(order.total || 0).toLocaleString('pt-AO')} Kz\n\nObrigado pela sua compra!`;
+          
+          const result = await enqueueWhatsApp({ 
+            to: `whatsapp:${phone}`, 
+            body: message 
+          });
+          
+          console.log(`✅ [ORDERS] WhatsApp para cliente processado:`, result);
+        } else {
+          if (!phone) {
+            console.log(`⚠️  [ORDERS] Cliente sem telefone, pulando WhatsApp`);
+          } else {
+            console.log(`⚠️  [ORDERS] Twilio não configurado, pulando WhatsApp`);
+          }
+        }
+      } catch (whatsappError) {
+        console.error('❌ [ORDERS] Erro ao enviar WhatsApp para cliente:', whatsappError);
       }
-    } catch (whatsappError) {
-      console.error('❌ [ORDERS] Erro ao enviar WhatsApp:', whatsappError);
-      // Não falhar o pedido se o WhatsApp falhar
+    })();
+    
+    // 📧📱 Enviar notificação para ADMIN
+    try {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@kzstore.ao';
+      const adminWhatsApp = process.env.ADMIN_WHATSAPP;
+      
+      console.log(`🔍 [ADMIN NOTIF] Configuração:`, {
+        adminEmail,
+        adminWhatsApp,
+        twilioConfigured: !!process.env.TWILIO_ACCOUNT_SID
+      });
+      
+      // Email para admin
+      if (adminEmail) {
+        console.log(`📧 [ORDERS] Enviando notificação de novo pedido para admin: ${adminEmail}`);
+        
+        const adminEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #E31E24;">🔔 Novo Pedido Recebido!</h2>
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Pedido:</strong> #${order.order_number}</p>
+              <p><strong>Cliente:</strong> ${order.user_name}</p>
+              <p><strong>Email:</strong> ${order.user_email}</p>
+              <p><strong>Total:</strong> ${Number(order.total).toLocaleString('pt-AO')} Kz</p>
+              <p><strong>Status:</strong> ${order.status}</p>
+              <p><strong>Método de Pagamento:</strong> ${order.payment_method}</p>
+            </div>
+            <p style="margin-top: 20px;">
+              <a href="https://kzstore.ao/admin" style="background: #E31E24; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+                Ver Pedido no Painel Admin
+              </a>
+            </p>
+          </div>
+        `;
+        
+        const emailResult = await sendEmail({
+          to: adminEmail,
+          subject: `🔔 Novo Pedido #${order.order_number} - KZSTORE`,
+          html: adminEmailHtml
+        });
+        
+        console.log(`✅ [ORDERS] Email para admin resultado:`, emailResult);
+      } else {
+        console.log(`⚠️  [ORDERS] ADMIN_EMAIL não configurado, pulando email para admin`);
+      }
+      
+      // WhatsApp para admin (async - não bloqueia resposta)
+      if (adminWhatsApp && process.env.TWILIO_ACCOUNT_SID) {
+        console.log(`📱 [ORDERS] Iniciando envio WhatsApp para admin: ${adminWhatsApp}`);
+        const adminMessage = `🔔 NOVO PEDIDO - KZSTORE\n\nPedido: #${order.order_number}\nCliente: ${order.user_name}\nTotal: ${Number(order.total).toLocaleString('pt-AO')} Kz\n\nAcesse: https://kzstore.ao/admin`;
+        
+        // Fire and forget - não aguardar resposta do Twilio
+        enqueueWhatsApp({
+          to: `whatsapp:${adminWhatsApp}`,
+          body: adminMessage
+        }).then((result) => {
+          console.log(`✅ [ORDERS] WhatsApp para admin enviado:`, result);
+        }).catch((err) => {
+          console.error(`❌ [ORDERS] Erro WhatsApp admin:`, err);
+        });
+      } else {
+        console.log(`⚠️  [ORDERS] ADMIN_WHATSAPP ou Twilio não configurado, pulando WhatsApp para admin`);
+      }
+    } catch (adminNotificationError) {
+      console.error('❌ [ORDERS] Erro ao enviar notificação para admin:', adminNotificationError);
     }
     
     const orderConverted = convertDecimalsToNumbers(order);
     res.json({ order: orderConverted });
   } catch (error: any) {
     console.error('Error creating order:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/admin/users - TEMPORÁRIO: Listar usuários (apenas admins)
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        user_type: true,
+        created_at: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    
+    res.json({ users, total: users.length });
+  } catch (error: any) {
+    console.error('Error listing users:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/admin/users/:email - TEMPORÁRIO: Apagar usuário específico
+app.delete('/api/admin/users/:email', requireAdmin, async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    // Proteção: não permitir apagar admin@kzstore.ao
+    if (email === 'admin@kzstore.ao') {
+      return res.status(403).json({ error: 'Não é permitido apagar este admin' });
+    }
+    
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    
+    await prisma.user.delete({ where: { email } });
+    
+    console.log(`🗑️ [ADMIN] Usuário ${email} apagado por ${req.userEmail}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Usuário ${email} apagado com sucesso`,
+      deleted: user
+    });
+  } catch (error: any) {
+    console.error('Error deleting user:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1421,7 +1600,7 @@ app.delete('/api/coupons/:id', async (req, res) => {
 // ============================================
 
 // GET /api/customers - Buscar todos os clientes
-app.get('/api/customers', requireAdmin, async (req: any, res) => {
+app.get('/api/customers', authMiddleware, requireAdmin, async (req: any, res) => {
   try {
     const customers = await prisma.customerProfile.findMany({
       orderBy: { created_at: 'desc' },
