@@ -1,0 +1,135 @@
+/**
+ * Hook para gerenciar trade-ins usando Supabase SDK
+ */
+
+import { useState, useCallback } from 'react';
+import { kvGet, kvSet, kvGetByPrefix } from '../utils/supabase/kv';
+import { buildAPIURL } from '../../utils/api';
+
+export type TradeIn = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userPhone: string;
+  deviceType: string;
+  brand: string;
+  model: string;
+  condition: 'excellent' | 'good' | 'fair' | 'poor';
+  description: string;
+  images?: string[];
+  estimatedValue?: number;
+  finalValue?: number;
+  status: 'submitted' | 'evaluating' | 'approved' | 'rejected' | 'completed';
+  evaluationNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+const TRADE_IN_PREFIX = 'tradein:';
+const TRADE_IN_LIST_KEY = 'tradeins:list';
+
+export function useTradeIn() {
+  const [tradeIns, setTradeIns] = useState<TradeIn[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchTradeIns = useCallback(async (): Promise<TradeIn[]> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(buildAPIURL('/trade-in'), {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao buscar trade-ins');
+      }
+      
+      const data = await response.json();
+      setTradeIns(data);
+      console.log('✅ [useTradeIn] Trade-ins carregados:', data.length);
+      return data;
+    } catch (err) {
+      console.error('[useTradeIn] Error fetching trade-ins:', err);
+      setError(String(err));
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const createTradeIn = useCallback(async (tradeInData: Omit<TradeIn, 'id' | 'createdAt' | 'status'>): Promise<TradeIn | null> => {
+    console.log('[useTradeIn] createTradeIn not implemented - using direct API call');
+    return null;
+  }, []);
+
+  const evaluateTradeIn = useCallback(async (
+    id: string | number,
+    evaluation: {
+      finalValue?: number;
+      adminNotes?: string;
+      status?: string;
+    }
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('🔍 [useTradeIn] Avaliando trade-in:', id, evaluation);
+      
+      const response = await fetch(buildAPIURL('/trade-in/${id}'), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(evaluation)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao avaliar trade-in');
+      }
+      
+      const data = await response.json();
+      console.log('✅ [useTradeIn] Trade-in avaliado:', data);
+      
+      // Recarregar lista
+      await fetchTradeIns();
+      
+      return true;
+    } catch (err) {
+      console.error('❌ [useTradeIn] Erro ao avaliar:', err);
+      setError(String(err));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchTradeIns]);
+
+  const updateTradeInStatus = useCallback(async (id: string, status: TradeIn['status']): Promise<boolean> => {
+    console.log('[useTradeIn] updateTradeInStatus not implemented - using Prisma backend');
+    return false;
+  }, []);
+
+  const getTradeInsByUser = useCallback(async (userId: string): Promise<TradeIn[]> => {
+    try {
+      const allTradeIns = await fetchTradeIns();
+      return allTradeIns.filter(t => t.userId === userId);
+    } catch (err) {
+      console.error('[useTradeIn] Error getting user trade-ins:', err);
+      return [];
+    }
+  }, [fetchTradeIns]);
+
+  return {
+    tradeIns,
+    loading,
+    error,
+    fetchTradeIns,
+    createTradeIn,
+    evaluateTradeIn,
+    updateTradeInStatus,
+    getTradeInsByUser
+  };
+}

@@ -1,0 +1,195 @@
+import { useState, useEffect } from 'react';
+import { X, Mail } from 'lucide-react';
+import { Button } from '../ui/button';
+import { buildAPIURL } from '../utils/api';
+
+type NewsletterPopupProps = {
+  postId?: string;
+  delay?: number; // milliseconds
+  onSubscribe?: () => void;
+};
+
+export function NewsletterPopup({ postId, delay = 30000, onSubscribe }: NewsletterPopupProps) {
+  const [show, setShow] = useState(false);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  useEffect(() => {
+    // Check if already dismissed or subscribed today
+    const dismissed = localStorage.getItem('newsletter_popup_dismissed');
+    const dismissedDate = dismissed ? new Date(dismissed) : null;
+    const today = new Date().toDateString();
+
+    if (dismissedDate && dismissedDate.toDateString() === today) {
+      return; // Don't show if dismissed today
+    }
+
+    // Show popup after delay
+    const timer = setTimeout(() => {
+      setShow(true);
+      trackPopup('shown');
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  const trackPopup = async (action: string, email?: string) => {
+    try {
+      await fetch(buildAPIURL('/blog/newsletter-popup'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          post_id: postId,
+          action,
+          email: email || null
+        })
+      });
+    } catch (error) {
+      console.error('Error tracking popup:', error);
+    }
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) return;
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(buildAPIURL('/newsletter/subscribe'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name: '',
+          source: 'blog_popup'
+        })
+      });
+
+      if (response.ok) {
+        setSubscribed(true);
+        trackPopup('subscribed', email);
+        onSubscribe?.();
+        
+        setTimeout(() => {
+          handleClose();
+        }, 3000);
+      } else {
+        alert('Erro ao subscrever. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Error subscribing:', error);
+      alert('Erro ao subscrever. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setShow(false);
+    localStorage.setItem('newsletter_popup_dismissed', new Date().toISOString());
+    trackPopup('closed');
+  };
+
+  const handleDismiss = () => {
+    setShow(false);
+    localStorage.setItem('newsletter_popup_dismissed', new Date().toISOString());
+    trackPopup('dismissed');
+  };
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 animate-in zoom-in-95">
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X className="size-6" />
+        </button>
+
+        {!subscribed ? (
+          <>
+            {/* Icon */}
+            <div className="w-16 h-16 bg-[#E31E24] rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="size-8 text-white" />
+            </div>
+
+            {/* Content */}
+            <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">
+              Gostou deste artigo?
+            </h2>
+            <p className="text-center text-gray-600 mb-6">
+              Receba os melhores artigos sobre tecnologia diretamente no seu email.
+              Sem spam, prometemos! 📧
+            </p>
+
+            {/* Form */}
+            <form onSubmit={handleSubscribe} className="space-y-3">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Seu melhor email"
+                className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#E31E24] focus:border-transparent"
+                required
+              />
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#E31E24] hover:bg-[#C01920] py-3 text-lg"
+              >
+                {loading ? 'Subscrevendo...' : '✨ Subscrever Grátis'}
+              </Button>
+            </form>
+
+            {/* Benefits */}
+            <div className="mt-4 space-y-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span>
+                <span>2 artigos por semana</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Ofertas exclusivas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Cancele quando quiser</span>
+              </div>
+            </div>
+
+            {/* Dismiss */}
+            <button
+              onClick={handleDismiss}
+              className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Não, obrigado
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Success State */}
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="size-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Bem-vindo! 🎉
+              </h2>
+              <p className="text-gray-600">
+                Subscrição confirmada! Já pode receber os nossos artigos exclusivos.
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,269 @@
+import { useState, useMemo, useEffect } from 'react';
+import { Product } from '../App';
+import { tiktokEvents } from '../utils/tiktok-events'; // 🎯 TikTok Pixel Events
+
+interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+  order: number;
+  subcategories?: any[];
+}
+
+export type SortOption = 'relevance' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'newest';
+
+export type FilterOptions = {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  specifications?: Record<string, string[]>;
+};
+
+export function useProductSearch(products: Product[]) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
+  const [filters, setFilters] = useState<FilterOptions>({});
+  const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
+
+  // Carregar categorias dinâmicas
+  useEffect(() => {
+    const loadCategories = () => {
+      const saved = localStorage.getItem('productCategories');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setDynamicCategories(parsed);
+        } catch (error) {
+          console.error('Erro ao carregar categorias:', error);
+        }
+      }
+    };
+
+    loadCategories();
+
+    // Escutar atualizações de categorias
+    const handleCategoriesUpdate = (event: CustomEvent) => {
+      setDynamicCategories(event.detail);
+    };
+
+    window.addEventListener('categoriesUpdated' as any, handleCategoriesUpdate);
+
+    return () => {
+      window.removeEventListener('categoriesUpdated' as any, handleCategoriesUpdate);
+    };
+  }, []);
+
+  // 🎯 TikTok Pixel: Rastrear buscas (com debounce)
+  useEffect(() => {
+    if (searchQuery.trim().length >= 3) {
+      const timeoutId = setTimeout(() => {
+        tiktokEvents.search(searchQuery.trim());
+      }, 1000); // Espera 1 segundo após usuário parar de digitar
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery]);
+
+  // Extract unique specification keys from all products
+  const availableSpecs = useMemo(() => {
+    const specs: Record<string, Set<string>> = {};
+    
+    products.forEach(product => {
+      if (product.especificacoes) {
+        Object.entries(product.especificacoes).forEach(([key, value]) => {
+          if (!specs[key]) {
+            specs[key] = new Set();
+          }
+          specs[key].add(String(value));
+        });
+      }
+    });
+
+    // Convert Sets to Arrays
+    const result: Record<string, string[]> = {};
+    Object.entries(specs).forEach(([key, values]) => {
+      result[key] = Array.from(values).sort();
+    });
+
+    return result;
+  }, [products]);
+
+  // Get unique categories - usar categorias dinâmicas + categorias dos produtos
+  const categories = useMemo(() => {
+    // Categorias dos produtos (IDs)
+    const productCats = new Set(products.map(p => p.categoria).filter(Boolean));
+    
+    // Se há categorias dinâmicas, usar elas com ícones
+    if (dynamicCategories.length > 0) {
+      // Mapear IDs de produtos para categorias dinâmicas
+      const categoryMap = new Map(dynamicCategories.map(cat => [cat.id, cat]));
+      
+      // Adicionar categorias dos produtos que existem no sistema
+      const result = Array.from(productCats)
+        .map(catId => {
+          const dynamicCat = categoryMap.get(catId);
+          if (dynamicCat) {
+            return {
+              id: dynamicCat.id,
+              name: dynamicCat.name,
+              icon: dynamicCat.icon
+            };
+          }
+          // Categoria antiga não encontrada no sistema
+          return {
+            id: catId,
+            name: catId,
+            icon: '📦'
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      return result;
+    }
+    
+    // Fallback: usar categorias dos produtos apenas
+    return Array.from(productCats).sort().map(cat => ({
+      id: cat,
+      name: cat,
+      icon: '📦'
+    }));
+  }, [products, dynamicCategories]);
+
+  // Get price range
+  const priceRange = useMemo(() => {
+    const prices = products.map(p => p.preco_aoa);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices)
+    };
+  }, [products]);
+
+  // Search and filter products
+  const filteredProducts = useMemo(() => {
+    let results = [...products];
+
+    // Search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(product => {
+        const searchableText = [
+          product.nome,
+          product.descricao,
+          product.categoria,
+          ...Object.values(product.especificacoes || {}).map(String)
+        ].join(' ').toLowerCase();
+        
+        return searchableText.includes(query);
+      });
+    }
+
+    // Category filter
+    if (filters.category && filters.category !== 'all') {
+      const filterCategory = filters.category.toLowerCase();
+      results = results.filter(p => {
+        const productCategory = p.categoria?.toLowerCase() || '';
+        // Match exact ou partial (ex: "RAM" match "Memória RAM", "network" match "Redes e Internet")
+        return productCategory.includes(filterCategory) || filterCategory.includes(productCategory);
+      });
+    }
+
+    // Price range filter
+    if (filters.minPrice !== undefined) {
+      results = results.filter(p => p.preco_aoa >= filters.minPrice!);
+    }
+    if (filters.maxPrice !== undefined) {
+      results = results.filter(p => p.preco_aoa <= filters.maxPrice!);
+    }
+
+    // Stock filter
+    if (filters.inStock) {
+      results = results.filter(p => p.estoque > 0);
+    }
+
+    // Specifications filter
+    if (filters.specifications) {
+      Object.entries(filters.specifications).forEach(([key, values]) => {
+        if (values.length > 0) {
+          results = results.filter(product => {
+            const productValue = product.especificacoes?.[key];
+            return productValue && values.includes(String(productValue));
+          });
+        }
+      });
+    }
+
+    // Sort results
+    switch (sortBy) {
+      case 'price-asc':
+        results.sort((a, b) => a.preco_aoa - b.preco_aoa);
+        break;
+      case 'price-desc':
+        results.sort((a, b) => b.preco_aoa - a.preco_aoa);
+        break;
+      case 'name-asc':
+        results.sort((a, b) => a.nome.localeCompare(b.nome));
+        break;
+      case 'name-desc':
+        results.sort((a, b) => b.nome.localeCompare(a.nome));
+        break;
+      case 'newest':
+        // Assume products are already in newest-first order
+        break;
+      case 'relevance':
+      default:
+        // If there's a search query, keep relevance order
+        // Otherwise, keep original order
+        break;
+    }
+
+    return results;
+  }, [products, searchQuery, sortBy, filters]);
+
+  const updateFilter = (key: keyof FilterOptions, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateSpecificationFilter = (specKey: string, values: string[]) => {
+    setFilters(prev => ({
+      ...prev,
+      specifications: {
+        ...prev.specifications,
+        [specKey]: values
+      }
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+    setSearchQuery('');
+    setSortBy('relevance');
+  };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.category && filters.category !== 'all') count++;
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++;
+    if (filters.inStock) count++;
+    if (filters.specifications) {
+      count += Object.values(filters.specifications).filter(v => v.length > 0).length;
+    }
+    return count;
+  }, [filters]);
+
+  return {
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    filters,
+    updateFilter,
+    updateSpecificationFilter,
+    clearFilters,
+    filteredProducts,
+    availableSpecs,
+    categories,
+    priceRange,
+    activeFilterCount
+  };
+}

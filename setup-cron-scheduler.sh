@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SERVICE_URL="https://kzstore-341392738431.us-central1.run.app"
-LOCATION="us-central1"
+SERVICE_URL="https://kzstore-341392738431.europe-southwest1.run.app"
+LOCATION="europe-west1"
 TIMEZONE="Africa/Luanda"
 
 echo "🚀 Configurando Cloud Scheduler para KZSTORE..."

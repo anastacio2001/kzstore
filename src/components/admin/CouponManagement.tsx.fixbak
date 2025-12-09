@@ -1,0 +1,474 @@
+import { useState, useEffect } from 'react';
+import { Ticket, Plus, Edit, Trash2, Check, X, Calendar, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { toast } from 'sonner';
+import { useCoupons } from '../../hooks/useCoupons';
+import { buildAPIURL } from '../utils/api';
+
+export function CouponManagement() {
+  const { coupons, loading, fetchCoupons, createCoupon, updateCoupon, deleteCoupon } = useCoupons();
+  const [showForm, setShowForm] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
+
+  // Form fields
+  const [code, setCode] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [discountValue, setDiscountValue] = useState('');
+  const [minPurchase, setMinPurchase] = useState('');
+  const [maxUses, setMaxUses] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadCoupons();
+  }, []);
+
+  const loadCoupons = async () => {
+    await fetchCoupons();
+  };
+
+  const resetForm = () => {
+    setCode('');
+    setDiscountType('percentage');
+    setDiscountValue('');
+    setMinPurchase('');
+    setMaxUses('');
+    setStartDate('');
+    setEndDate('');
+    setDescription('');
+    setEditingCoupon(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (coupon: any) => {
+    setEditingCoupon(coupon);
+    setCode(coupon.code);
+    setDiscountType(coupon.discount_type);
+    setDiscountValue(coupon.discount_value.toString());
+    setMinPurchase(coupon.minimum_order_value?.toString() || '');
+    setMaxUses(coupon.max_uses?.toString() || '');
+    setStartDate(coupon.start_date.split('T')[0]);
+    setEndDate(coupon.end_date.split('T')[0]);
+    setDescription(coupon.description);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!code || !discountValue) {
+      toast.error('Código e valor do desconto são obrigatórios');
+      return;
+    }
+
+    const numericValue = parseFloat(discountValue);
+    if (discountType === 'percentage' && (numericValue < 1 || numericValue > 100)) {
+      toast.error('Percentual deve estar entre 1 e 100');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const couponData = {
+        code: code.toUpperCase(),
+        discount_type: discountType,
+        discount_value: numericValue,
+        minimum_order_value: minPurchase ? parseFloat(minPurchase) : 0,
+        max_uses: maxUses ? parseInt(maxUses) : null,
+        start_date: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+        end_date: endDate ? new Date(endDate).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        description
+      };
+
+      if (editingCoupon) {
+        await updateCoupon(editingCoupon.id, couponData);
+        toast.success('Cupom atualizado!');
+      } else {
+        await createCoupon(couponData);
+        toast.success('Cupom criado!');
+      }
+
+      resetForm();
+      loadCoupons();
+    } catch (error) {
+      console.error('Error saving coupon:', error);
+      toast.error('Erro ao salvar cupom');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (couponId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este cupom?')) {
+      return;
+    }
+
+    try {
+      await deleteCoupon(couponId);
+      toast.success('Cupom excluído!');
+      loadCoupons();
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      toast.error('Erro ao excluir cupom');
+    }
+  };
+
+  const toggleActive = async (coupon: any) => {
+    try {
+      const response = await fetch(buildAPIURL('/coupons/${coupon.id}'), {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_active: !coupon.is_active })
+      });
+
+      if (response.ok) {
+        toast.success(coupon.is_active ? 'Cupom desativado' : 'Cupom ativado');
+        loadCoupons();
+      }
+    } catch (error) {
+      console.error('Error toggling coupon:', error);
+      toast.error('Erro ao atualizar cupom');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-AO', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const isExpired = (endDate: string) => {
+    return new Date(endDate) < new Date();
+  };
+
+  const stats = {
+    total: coupons.length,
+    active: coupons.filter(c => c.is_active && !isExpired(c.end_date)).length,
+    expired: coupons.filter(c => isExpired(c.end_date)).length,
+    totalUsed: coupons.reduce((sum, c) => sum + c.used_count, 0)
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-l-[#E31E24]">
+          <p className="text-sm text-gray-600 mb-1">Total</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+        </div>
+
+        <div className="bg-green-50 rounded-lg shadow p-4 border-l-4 border-l-green-600">
+          <p className="text-sm text-green-700 mb-1">Ativos</p>
+          <p className="text-2xl font-bold text-green-900">{stats.active}</p>
+        </div>
+
+        <div className="bg-red-50 rounded-lg shadow p-4 border-l-4 border-l-red-600">
+          <p className="text-sm text-red-700 mb-1">Expirados</p>
+          <p className="text-2xl font-bold text-red-900">{stats.expired}</p>
+        </div>
+
+        <div className="bg-blue-50 rounded-lg shadow p-4 border-l-4 border-l-blue-600">
+          <p className="text-sm text-blue-700 mb-1">Usos Totais</p>
+          <p className="text-2xl font-bold text-blue-900">{stats.totalUsed}</p>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2">
+          <Ticket className="size-6 text-[#E31E24]" />
+          Cupons de Desconto
+        </h2>
+        <Button
+          onClick={() => {
+            resetForm();
+            setShowForm(!showForm);
+          }}
+          className="bg-[#E31E24] hover:bg-[#C41E1E]"
+        >
+          <Plus className="mr-2 size-4" />
+          Novo Cupom
+        </Button>
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="bg-white rounded-lg shadow p-6 border-2 border-[#E31E24]">
+          <h3 className="mb-4">{editingCoupon ? 'Editar Cupom' : 'Criar Novo Cupom'}</h3>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Código *
+              </label>
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="Ex: PROMO2024"
+                maxLength={20}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Desconto *
+              </label>
+              <select
+                value={discountType}
+                onChange={(e) => setDiscountType(e.target.value as 'percentage' | 'fixed')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="percentage">Percentual (%)</option>
+                <option value="fixed">Valor Fixo (AOA)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Valor do Desconto *
+              </label>
+              <Input
+                type="number"
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                placeholder={discountType === 'percentage' ? '10' : '5000'}
+                min="0"
+                max={discountType === 'percentage' ? '100' : undefined}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {discountType === 'percentage' ? 'Entre 1 e 100%' : 'Valor em AOA'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Compra Mínima (AOA)
+              </label>
+              <Input
+                type="number"
+                value={minPurchase}
+                onChange={(e) => setMinPurchase(e.target.value)}
+                placeholder="0"
+                min="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Máximo de Usos
+              </label>
+              <Input
+                type="number"
+                value={maxUses}
+                onChange={(e) => setMaxUses(e.target.value)}
+                placeholder="Ilimitado"
+                min="1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data de Início
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data de Término
+              </label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descrição
+              </label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ex: Desconto de Black Friday"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="bg-[#E31E24] hover:bg-[#C41E1E]"
+            >
+              {submitting ? 'Salvando...' : editingCoupon ? 'Atualizar' : 'Criar Cupom'}
+            </Button>
+            <Button
+              onClick={resetForm}
+              variant="outline"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Coupons List */}
+      <div className="space-y-4">
+        {coupons.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <Ticket className="size-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Nenhum cupom criado ainda</p>
+          </div>
+        ) : (
+          coupons.map((coupon) => {
+            const expired = isExpired(coupon.end_date);
+            const usagePercentage = coupon.max_uses 
+              ? (coupon.used_count / coupon.max_uses) * 100 
+              : 0;
+
+            return (
+              <div
+                key={coupon.id}
+                className={`bg-white rounded-lg shadow p-6 border-l-4 ${
+                  !coupon.is_active ? 'border-l-gray-400 opacity-60' :
+                  expired ? 'border-l-red-600' :
+                  'border-l-green-600'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#E31E24] to-[#FDD835] text-white rounded-lg font-mono font-bold text-lg">
+                        <Ticket className="size-5" />
+                        {coupon.code}
+                      </div>
+
+                      {!coupon.is_active && (
+                        <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
+                          Inativo
+                        </span>
+                      )}
+
+                      {expired && coupon.is_active && (
+                        <span className="px-3 py-1 bg-red-100 text-red-600 text-sm rounded-full flex items-center gap-1">
+                          <AlertCircle className="size-3" />
+                          Expirado
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3">
+                      <div>
+                        <p className="text-sm text-gray-600">Desconto</p>
+                        <p className="font-semibold text-gray-900">
+                          {coupon.discount_type === 'percentage' 
+                            ? `${coupon.discount_value}%`
+                            : `${coupon.discount_value.toLocaleString('pt-AO')} AOA`
+                          }
+                        </p>
+                      </div>
+
+                      {coupon.minimum_order_value > 0 && (
+                        <div>
+                          <p className="text-sm text-gray-600">Compra Mínima</p>
+                          <p className="font-semibold text-gray-900">
+                            {coupon.minimum_order_value.toLocaleString('pt-AO')} AOA
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-sm text-gray-600">Usos</p>
+                        <p className="font-semibold text-gray-900">
+                          {coupon.used_count} {coupon.max_uses ? `/ ${coupon.max_uses}` : ''}
+                        </p>
+                        {coupon.max_uses && (
+                          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div
+                              className="bg-[#E31E24] h-2 rounded-full transition-all"
+                              style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-gray-600">Validade</p>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {formatDate(coupon.start_date)} - {formatDate(coupon.end_date)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {coupon.description && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        {coupon.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      onClick={() => toggleActive(coupon)}
+                      size="sm"
+                      variant="outline"
+                      className={coupon.is_active ? 'border-green-300 text-green-600' : 'border-gray-300'}
+                    >
+                      {coupon.is_active ? <Check className="mr-1 size-4" /> : <X className="mr-1 size-4" />}
+                      {coupon.is_active ? 'Ativo' : 'Inativo'}
+                    </Button>
+
+                    <Button
+                      onClick={() => handleEdit(coupon)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Edit className="mr-1 size-4" />
+                      Editar
+                    </Button>
+
+                    <Button
+                      onClick={() => handleDelete(coupon.id)}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="mr-1 size-4" />
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}

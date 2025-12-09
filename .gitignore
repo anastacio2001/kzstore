@@ -53,3 +53,4 @@ cookies.txt
 .env*.local
 .env.yaml
 setup-cloud-run-env.sh
+apply-blog-interactions.sh

@@ -429,4 +429,212 @@ router.post('/upload', authMiddleware, requireAdmin, upload.single('image'), (re
   }
 });
 
+/**
+ * ==============================================
+ * 🆕 NOVAS ROTAS - MELHORIAS BLOG
+ * ==============================================
+ */
+
+/**
+ * GET /api/blog/:postId/comments - Listar comentários de um post
+ */
+router.get('/:postId/comments', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+
+    const comments = await prisma.$queryRaw`
+      SELECT * FROM blog_comments
+      WHERE post_id = ${postId} AND status = 'approved'
+      ORDER BY created_at DESC
+    `;
+
+    res.json({ comments });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error fetching comments:', error);
+    res.status(500).json({ error: 'Erro ao buscar comentários' });
+  }
+});
+
+/**
+ * POST /api/blog/:postId/comments - Criar comentário
+ */
+router.post('/:postId/comments', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const { content, author_name, author_email, parent_id } = req.body;
+
+    console.log('📝 [BLOG] Creating comment:', { postId, content: content?.substring(0, 50), author_name, author_email, parent_id });
+
+    if (!content || !author_name || !author_email) {
+      console.log('❌ [BLOG] Missing fields:', { hasContent: !!content, hasName: !!author_name, hasEmail: !!author_email });
+      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    // Gerar ID
+    const id = `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_comments (id, post_id, parent_id, author_name, author_email, content, status)
+      VALUES (${id}, ${postId}, ${parent_id || null}, ${author_name}, ${author_email}, ${content}, 'pending')
+    `;
+
+    console.log('✅ [BLOG] Comment created:', id);
+    res.status(201).json({ success: true, id });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error creating comment:', error);
+    res.status(500).json({ error: 'Erro ao criar comentário' });
+  }
+});
+
+/**
+ * POST /api/blog/comments/:commentId/like - Curtir comentário
+ */
+router.post('/comments/:commentId/like', async (req: Request, res: Response) => {
+  try {
+    const { commentId } = req.params;
+    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+    const id = `like-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Verificar se já curtiu
+    const existing: any[] = await prisma.$queryRaw`
+      SELECT id FROM blog_likes
+      WHERE target_type = 'comment' AND target_id = ${commentId} AND session_id = ${sessionId}
+    `;
+
+    if (existing.length > 0) {
+      return res.json({ message: 'Já curtiu este comentário' });
+    }
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_likes (id, target_type, target_id, session_id)
+      VALUES (${id}, 'comment', ${commentId}, ${sessionId})
+    `;
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error liking comment:', error);
+    res.status(500).json({ error: 'Erro ao curtir comentário' });
+  }
+});
+
+/**
+ * POST /api/blog/:postId/share - Registrar compartilhamento
+ */
+router.post('/:postId/share', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const { platform } = req.body;
+    const id = `share-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_shares (id, post_id, platform, session_id)
+      VALUES (${id}, ${postId}, ${platform}, ${sessionId})
+    `;
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error tracking share:', error);
+    res.status(500).json({ error: 'Erro ao registrar compartilhamento' });
+  }
+});
+
+/**
+ * GET /api/blog/related - Buscar artigos relacionados
+ */
+router.get('/related', async (req: Request, res: Response) => {
+  try {
+    const { exclude, category, tags, limit = '3' } = req.query;
+    const limitNum = parseInt(limit as string);
+
+    let query = `
+      SELECT id, title, slug, excerpt, cover_image, category, views_count, published_at, created_at,
+             reading_time
+      FROM blog_posts
+      WHERE status = 'published'
+    `;
+
+    if (exclude) {
+      query += ` AND id != '${exclude}'`;
+    }
+
+    if (category) {
+      query += ` AND category = '${category}'`;
+    }
+
+    // Ordenar por views para posts mais populares
+    query += ` ORDER BY views_count DESC, published_at DESC LIMIT ${limitNum}`;
+
+    const posts = await prisma.$queryRawUnsafe(query);
+
+    res.json({ posts });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error fetching related posts:', error);
+    res.status(500).json({ error: 'Erro ao buscar artigos relacionados' });
+  }
+});
+
+/**
+ * POST /api/blog/analytics - Registrar leitura/analytics
+ */
+router.post('/analytics', async (req: Request, res: Response) => {
+  try {
+    const { post_id, time_spent, scroll_depth, completed_read } = req.body;
+    const id = `analytics-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_analytics (id, post_id, session_id, time_spent, scroll_depth, completed_read)
+      VALUES (${id}, ${post_id}, ${sessionId}, ${time_spent || 0}, ${scroll_depth || 0}, ${completed_read || false})
+    `;
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error tracking analytics:', error);
+    res.status(500).json({ error: 'Erro ao registrar analytics' });
+  }
+});
+
+/**
+ * POST /api/blog/newsletter-popup - Tracking popup newsletter
+ */
+router.post('/newsletter-popup', async (req: Request, res: Response) => {
+  try {
+    const { post_id, action, email } = req.body;
+    const id = `popup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_newsletter_popups (id, post_id, action, email, session_id)
+      VALUES (${id}, ${post_id || null}, ${action}, ${email || null}, ${sessionId})
+    `;
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error tracking popup:', error);
+    res.status(500).json({ error: 'Erro ao registrar popup' });
+  }
+});
+
+/**
+ * POST /api/blog/search - Tracking buscas
+ */
+router.post('/search', async (req: Request, res: Response) => {
+  try {
+    const { search_query, results_count, clicked_post_id, filters } = req.body;
+    const id = `search-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = req.headers['x-session-id'] as string || 'anonymous';
+
+    await prisma.$executeRaw`
+      INSERT INTO blog_searches (id, search_query, results_count, session_id, clicked_post_id, filters)
+      VALUES (${id}, ${search_query}, ${results_count || 0}, ${sessionId}, ${clicked_post_id || null}, ${JSON.stringify(filters || {})})
+    `;
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ [BLOG] Error tracking search:', error);
+    res.status(500).json({ error: 'Erro ao registrar busca' });
+  }
+});
+
 export default router;

@@ -1,0 +1,140 @@
+import { useEffect, useState } from 'react';
+import { TrendingUp, Clock, Eye } from 'lucide-react';
+import { buildAPIURL } from '../../utils/api';
+
+type RelatedPost = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  cover_image: string;
+  category: string;
+  views_count: number;
+  reading_time: number;
+  published_at: string;
+};
+
+type RelatedArticlesProps = {
+  currentPostId: string;
+  category?: string;
+  tags?: string[];
+  onNavigate: (slug: string) => void;
+};
+
+export function RelatedArticles({ currentPostId, category, tags = [], onNavigate }: RelatedArticlesProps) {
+  const [relatedPosts, setRelatedPosts] = useState<RelatedPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRelatedPosts();
+  }, [currentPostId, category, tags]);
+
+  const loadRelatedPosts = async () => {
+    try {
+      const params = new URLSearchParams({
+        exclude: currentPostId,
+        limit: '3',
+        ...(category && { category }),
+        ...(tags.length > 0 && { tags: tags.join(',') })
+      });
+
+      const response = await fetch(buildAPIURL('/blog/related?${params}'));
+      if (response.ok) {
+        const data = await response.json();
+        setRelatedPosts(data.posts || []);
+      }
+    } catch (error) {
+      console.error('Error loading related posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-AO', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  if (loading) {
+    return (
+      <div className="mt-12 pt-12 border-t border-gray-200">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-48"></div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="space-y-3">
+                <div className="h-48 bg-gray-200 rounded"></div>
+                <div className="h-4 bg-gray-200 rounded"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (relatedPosts.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-12 pt-12 border-t border-gray-200">
+      <div className="flex items-center gap-2 mb-6">
+        <TrendingUp className="size-6 text-[#E31E24]" />
+        <h2 className="text-2xl font-bold text-gray-900">Leia Também</h2>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {relatedPosts.map((post) => (
+          <article
+            key={post.id}
+            onClick={() => onNavigate(post.slug)}
+            className="group cursor-pointer bg-white rounded-lg overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-all"
+          >
+            {/* Image */}
+            <div className="relative h-48 overflow-hidden">
+              <img
+                src={post.cover_image || '/placeholder-blog.jpg'}
+                alt={post.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute top-3 left-3">
+                <span className="bg-[#E31E24] text-white px-3 py-1 rounded-full text-xs font-medium">
+                  {post.category}
+                </span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#E31E24] transition-colors">
+                {post.title}
+              </h3>
+              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                {post.excerpt}
+              </p>
+
+              {/* Meta */}
+              <div className="flex items-center gap-3 text-xs text-gray-500">
+                {post.reading_time && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="size-3" />
+                    <span>{post.reading_time} min</span>
+                  </div>
+                )}
+                {post.views_count > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Eye className="size-3" />
+                    <span>{post.views_count}</span>
+                  </div>
+                )}
+                <span className="ml-auto">{formatDate(post.published_at)}</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,152 @@
+import { useEffect } from 'react';
+// Supabase keys removed - analytics should call backend /api endpoints
+
+declare global {
+  interface Window {
+    gtag?: (...args: any[]) => void;
+    dataLayer?: any[];
+  }
+}
+
+type AnalyticsProps = {
+  googleAnalyticsId?: string; // Formato: G-XXXXXXXXXX ou UA-XXXXXXXXX
+};
+
+export function Analytics({ googleAnalyticsId }: AnalyticsProps) {
+  useEffect(() => {
+    if (googleAnalyticsId) {
+      // Carregar Google Analytics
+      const script1 = document.createElement('script');
+      script1.async = true;
+      script1.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
+      document.head.appendChild(script1);
+
+      const script2 = document.createElement('script');
+      script2.innerHTML = `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${googleAnalyticsId}', {
+          page_path: window.location.pathname,
+        });
+      `;
+      document.head.appendChild(script2);
+
+      console.log('✅ Google Analytics carregado:', googleAnalyticsId);
+    }
+  }, [googleAnalyticsId]);
+
+  return null;
+}
+
+// Hook personalizado para rastrear eventos
+export function useAnalytics() {
+  const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
+    // Google Analytics
+    if (window.gtag) {
+      window.gtag('event', eventName, eventParams);
+    }
+
+    // Analytics customizado no backend
+    trackCustomEvent(eventName, eventParams);
+  };
+
+  const trackPageView = (page: string) => {
+    if (window.gtag) {
+      window.gtag('config', window.gtag, {
+        page_path: page,
+      });
+    }
+
+    trackCustomEvent('page_view', { page });
+  };
+
+  const trackPurchase = (orderId: string, value: number, items: any[]) => {
+    if (window.gtag) {
+      window.gtag('event', 'purchase', {
+        transaction_id: orderId,
+        value: value,
+        currency: 'AOA',
+        items: items
+      });
+    }
+
+    trackCustomEvent('purchase', { orderId, value, items });
+  };
+
+  const trackAddToCart = (product: any, quantity: number) => {
+    if (window.gtag) {
+      window.gtag('event', 'add_to_cart', {
+        currency: 'AOA',
+        value: product.preco_aoa * quantity,
+        items: [{
+          item_id: product.id,
+          item_name: product.nome,
+          item_category: product.categoria,
+          price: product.preco_aoa,
+          quantity: quantity
+        }]
+      });
+    }
+
+    trackCustomEvent('add_to_cart', { 
+      product_id: product.id,
+      product_name: product.nome,
+      quantity,
+      value: product.preco_aoa * quantity
+    });
+  };
+
+  const trackViewProduct = (product: any) => {
+    if (window.gtag) {
+      window.gtag('event', 'view_item', {
+        currency: 'AOA',
+        value: product.preco_aoa,
+        items: [{
+          item_id: product.id,
+          item_name: product.nome,
+          item_category: product.categoria,
+          price: product.preco_aoa
+        }]
+      });
+    }
+
+    trackCustomEvent('view_product', {
+      product_id: product.id,
+      product_name: product.nome,
+      category: product.categoria
+    });
+  };
+
+  const trackSearch = (searchTerm: string) => {
+    if (window.gtag) {
+      window.gtag('event', 'search', {
+        search_term: searchTerm
+      });
+    }
+
+    trackCustomEvent('search', { search_term: searchTerm });
+  };
+
+  return {
+    trackEvent,
+    trackPageView,
+    trackPurchase,
+    trackAddToCart,
+    trackViewProduct,
+    trackSearch
+  };
+}
+
+// Função auxiliar para rastrear eventos customizados no backend
+async function trackCustomEvent(eventName: string, eventParams?: Record<string, any>) {
+  try {
+    await fetch(buildAPIURL('/analytics/track'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: eventName, params: eventParams, url: window.location.href, referrer: document.referrer, userAgent: navigator.userAgent })
+    });
+  } catch (error) {
+    console.debug('Analytics tracking failed:', error);
+  }
+}

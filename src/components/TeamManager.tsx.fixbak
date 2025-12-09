@@ -1,0 +1,560 @@
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { useState, useEffect } from 'react';
+import { Users, UserPlus, Edit, Trash2, CheckCircle, XCircle, Clock, Mail, Key, Shield, Eye, EyeOff } from 'lucide-react';
+import { buildAPIURL } from '../utils/api';
+
+interface TeamMember {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  permissions: any;
+  is_active: boolean;
+  invited_by: string;
+  invited_at: string;
+  accepted_at: string | null;
+  last_login: string | null;
+  avatar_url: string | null;
+  department: string | null;
+  phone: string | null;
+  password_changed?: boolean;
+  temp_password?: string;
+}
+
+interface NewMember {
+  email: string;
+  name: string;
+  role: string;
+  department: string;
+  phone: string;
+  is_admin?: boolean;
+  password?: string;
+}
+
+interface MemberCredentials {
+  email: string;
+  tempPassword: string;
+  needsPasswordChange: boolean;
+}
+
+export function TeamManager() {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAdminForm, setShowAdminForm] = useState(false);
+  const [lastCreatedCredentials, setLastCreatedCredentials] = useState<MemberCredentials | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newMember, setNewMember] = useState<NewMember>({
+    email: '',
+    name: '',
+    role: 'editor',
+    department: 'vendas',
+    phone: ''
+  });
+  const [newAdmin, setNewAdmin] = useState({
+    email: '',
+    name: '',
+    password: ''
+  });
+
+  useEffect(() => {
+    loadMembers();
+  }, []);
+
+  const loadMembers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(buildAPIURL('/team-members'));
+      const data = await response.json();
+      setMembers(data);
+    } catch (error) {
+      console.error('Erro ao carregar membros:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(buildAPIURL('/team-members'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newMember,
+          invited_by: 'admin-001',
+          send_email: true,
+          permissions: {
+            can_create_products: newMember.role !== 'viewer',
+            can_edit_products: newMember.role !== 'viewer',
+            can_delete_products: newMember.role === 'admin',
+            can_manage_orders: newMember.role !== 'viewer',
+            can_view_reports: true
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await loadMembers();
+        
+        // Mostrar credenciais criadas
+        if (data.credentials) {
+          setLastCreatedCredentials(data.credentials);
+        }
+        
+        setShowAddForm(false);
+        setNewMember({
+          email: '',
+          name: '',
+          role: 'editor',
+          department: 'vendas',
+          phone: ''
+        });
+        
+        alert(`✅ Membro ${data.member.name} criado com sucesso!\n\n📧 Email: ${data.credentials.email}\n🔑 Senha temporária: ${data.credentials.tempPassword}\n\n⚠️ Guarde essas credenciais!`);
+      } else {
+        alert(`❌ Erro: ${data.error || 'Erro ao criar membro'}`);
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar membro:', error);
+      alert('❌ Erro ao adicionar membro. Verifique a conexão.');
+    }
+  };
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newAdmin.password.length < 8) {
+      alert('❌ A senha deve ter no mínimo 8 caracteres');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildAPIURL('/auth/create-admin'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAdmin)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`✅ Admin ${data.user.name} criado com sucesso!`);
+        setShowAdminForm(false);
+        setNewAdmin({ email: '', name: '', password: '' });
+      } else {
+        alert(`❌ Erro: ${data.error || 'Erro ao criar admin'}`);
+      }
+    } catch (error) {
+      console.error('Erro ao criar admin:', error);
+      alert('❌ Erro ao criar admin. Verifique a conexão.');
+    }
+  };
+
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
+    try {
+      await fetch(buildAPIURL('/team-members/${id}'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !currentStatus,
+          updated_by: 'admin-001'
+        })
+      });
+      await loadMembers();
+    } catch (error) {
+      console.error('Erro ao atualizar membro:', error);
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    const colors = {
+      admin: 'bg-red-100 text-red-800',
+      editor: 'bg-blue-100 text-blue-800',
+      viewer: 'bg-gray-100 text-gray-800',
+      moderator: 'bg-purple-100 text-purple-800'
+    };
+    return colors[role as keyof typeof colors] || colors.viewer;
+  };
+
+  const getDepartmentBadge = (dept: string | null) => {
+    const colors = {
+      vendas: 'bg-green-100 text-green-800',
+      estoque: 'bg-yellow-100 text-yellow-800',
+      marketing: 'bg-pink-100 text-pink-800',
+      suporte: 'bg-indigo-100 text-indigo-800'
+    };
+    if (!dept) return 'bg-gray-100 text-gray-800';
+    return colors[dept as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <h2 className="text-2xl mb-6">Gestão de Equipe</h2>
+        <Card className="p-8 text-center">
+          <p className="text-gray-500">Carregando membros...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Users className="w-6 h-6" />
+          Gestão de Equipe
+        </h2>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowAdminForm(!showAdminForm)}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Shield className="w-4 h-4" />
+            Criar Admin
+          </Button>
+          <Button 
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center gap-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            Adicionar Membro
+          </Button>
+        </div>
+      </div>
+
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Total de Membros</div>
+          <div className="text-2xl font-bold">{members.length}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Ativos</div>
+          <div className="text-2xl font-bold text-green-600">
+            {members.filter(m => m.is_active).length}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Inativos</div>
+          <div className="text-2xl font-bold text-red-600">
+            {members.filter(m => !m.is_active).length}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-sm text-gray-500">Convites Pendentes</div>
+          <div className="text-2xl font-bold text-yellow-600">
+            {members.filter(m => !m.accepted_at && m.is_active).length}
+          </div>
+        </Card>
+      </div>
+
+      {/* Formulário de Adicionar Admin */}
+      {showAdminForm && (
+        <Card className="p-6 mb-6 border-2 border-red-200 bg-red-50">
+          <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-red-700">
+            <Shield className="w-5 h-5" />
+            Criar Novo Administrador
+          </h3>
+          <p className="text-sm text-red-600 mb-4">
+            ⚠️ Administradores têm acesso completo ao sistema. Use com cuidado!
+          </p>
+          <form onSubmit={handleAddAdmin} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={newAdmin.name}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="João Silva"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={newAdmin.email}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="admin@kzstore.ao"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Senha (mínimo 8 caracteres)</label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={newAdmin.password}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" className="bg-red-600 hover:bg-red-700">
+                Criar Administrador
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowAdminForm(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Formulário de Adicionar */}
+      {showAddForm && (
+        <Card className="p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Adicionar Novo Membro</h3>
+          <form onSubmit={handleAddMember} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={newMember.name}
+                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="João Silva"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={newMember.email}
+                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="joao@kzstore.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Telefone</label>
+                <input
+                  type="tel"
+                  value={newMember.phone}
+                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="+244 923 456 789"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cargo</label>
+                <select
+                  value={newMember.role}
+                  onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="viewer">Visualizador (Ver apenas)</option>
+                  <option value="editor">Editor (Criar/Editar)</option>
+                  <option value="moderator">Moderador (Editar/Moderar)</option>
+                  <option value="admin">Administrador (Acesso Total)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Departamento</label>
+                <select
+                  value={newMember.department}
+                  onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-md"
+                >
+                  <option value="vendas">Vendas</option>
+                  <option value="estoque">Estoque</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="suporte">Suporte</option>
+                </select>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="text-sm text-blue-800">
+                <strong>ℹ️ Informação:</strong> Uma senha temporária será gerada automaticamente e enviada por email para o novo membro.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Convidar Membro</Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowAddForm(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Credenciais do Último Membro Criado */}
+      {lastCreatedCredentials && (
+        <Card className="p-6 mb-6 border-2 border-green-200 bg-green-50">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-lg font-semibold text-green-700 flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Credenciais do Novo Membro
+            </h3>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setLastCreatedCredentials(null)}
+            >
+              ✕
+            </Button>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium text-green-700">Email:</label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 bg-white px-3 py-2 rounded border text-sm">
+                  {lastCreatedCredentials.email}
+                </code>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(lastCreatedCredentials.email);
+                    alert('Email copiado!');
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-green-700">Senha Temporária:</label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 bg-white px-3 py-2 rounded border text-sm font-mono">
+                  {showPassword ? lastCreatedCredentials.tempPassword : '••••••••••••'}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(lastCreatedCredentials.tempPassword);
+                    alert('Senha copiada!');
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-green-700 mt-2">
+              ✅ Um email foi enviado ao novo membro com estas credenciais.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Lista de Membros */}
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Membro</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departamento</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Convite</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    Nenhum membro cadastrado. Clique em "Adicionar Membro" para começar.
+                  </td>
+                </tr>
+              ) : (
+                members.map((member) => (
+                  <tr key={member.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="font-medium text-gray-900">{member.name}</div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {member.email}
+                        </div>
+                        {member.phone && (
+                          <div className="text-xs text-gray-400">{member.phone}</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadge(member.role)}`}>
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {member.department && (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDepartmentBadge(member.department)}`}>
+                          {member.department}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {member.is_active ? (
+                        <span className="flex items-center gap-1 text-green-600 text-sm">
+                          <CheckCircle className="w-4 h-4" />
+                          Ativo
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-600 text-sm">
+                          <XCircle className="w-4 h-4" />
+                          Inativo
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {member.accepted_at ? (
+                        <span className="text-sm text-green-600">✓ Aceito</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-yellow-600 text-sm">
+                          <Clock className="w-4 h-4" />
+                          Pendente
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleActive(member.id, member.is_active)}
+                        >
+                          {member.is_active ? 'Desativar' : 'Ativar'}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}

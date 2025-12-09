@@ -1,0 +1,348 @@
+import { useState, useEffect } from 'react';
+import { Search, X, ArrowUpDown, Grid3x3, List, Package, SlidersHorizontal } from 'lucide-react';
+import { ProductCard } from './ProductCard';
+import { ProductFilters } from './ProductFilters';
+import { ProductGridSkeleton } from './LoadingStates';
+import { EmptyState } from './LoadingStates';
+import { Product } from '../App';
+import { useStore } from '../contexts/StoreContext';
+import { useProductSearch, SortOption } from '../hooks/useProductSearch';
+import { AdBanner } from './AdBanner';
+import { FlashSaleBanner } from './FlashSaleBanner';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
+import { Button } from './ui/button';
+
+type ProductsPageProps = {
+  onViewProduct: (product: Product) => void;
+  onAddToCart: (product: Product) => void;
+  selectedCategory: string;
+  onCategoryChange: (category: string) => void;
+  isInWishlist?: (productId: string) => boolean;
+  onToggleWishlist?: (product: Product) => void;
+  onNavigateToProduct?: (product: any) => void;
+};
+
+export function ProductsPage({ 
+  onViewProduct, 
+  onAddToCart, 
+  selectedCategory, 
+  onCategoryChange,
+  isInWishlist,
+  onToggleWishlist,
+  onNavigateToProduct 
+}: ProductsPageProps) {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { products, fetchProducts, loading } = useStore();
+  
+  const {
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    filters,
+    updateFilter,
+    updateSpecificationFilter,
+    clearFilters,
+    filteredProducts,
+    availableSpecs,
+    categories,
+    priceRange,
+    activeFilterCount
+  } = useProductSearch(products);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // Sync selected category with filters
+  useEffect(() => {
+    if (selectedCategory) {
+      updateFilter('category', selectedCategory);
+    }
+  }, [selectedCategory]);
+
+  const sortOptions: { value: SortOption; label: string }[] = [
+    { value: 'relevance', label: 'Mais Relevantes' },
+    { value: 'price-asc', label: 'Menor Preço' },
+    { value: 'price-desc', label: 'Maior Preço' },
+    { value: 'name-asc', label: 'A-Z' },
+    { value: 'name-desc', label: 'Z-A' },
+    { value: 'newest', label: 'Mais Recentes' }
+  ];
+
+  if (loading && products.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <ProductGridSkeleton count={12} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Category Advertisement Banner */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        <AdBanner position="category-top" onNavigateToProduct={onNavigateToProduct} />
+      </div>
+
+      {/* Header - Mobile Optimized */}
+      <div className="bg-white border-b sticky top-[57px] sm:top-[73px] z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-6">
+          {/* Title and Result Count */}
+          <div className="flex items-center justify-between gap-3 mb-2 sm:mb-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base sm:text-3xl font-bold text-gray-900 truncate">
+                Catálogo de Produtos
+              </h1>
+              <p className="text-xs sm:text-base text-gray-600 mt-0.5">
+                {filteredProducts.length} {filteredProducts.length === 1 ? 'produto' : 'produtos'}
+              </p>
+            </div>
+
+            {/* View Mode Toggle - Desktop Only */}
+            <div className="hidden sm:flex items-center gap-2 bg-gray-100 p-1 rounded-xl flex-shrink-0">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2.5 rounded-lg transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-red-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Visualização em Grade"
+              >
+                <Grid3x3 className="size-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2.5 rounded-lg transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-white text-red-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title="Visualização em Lista"
+              >
+                <List className="size-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search and Controls Row - Mobile Optimized Single Line */}
+          <div className="flex gap-2">
+            {/* Search Input - Compact */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 size-3.5 sm:size-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar produtos..."
+                className="w-full pl-8 sm:pl-12 pr-8 sm:pr-12 py-2 sm:py-3.5 text-xs sm:text-base rounded-lg sm:rounded-xl border-2 border-gray-200 focus:border-red-600 focus:outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="size-3.5 sm:size-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort Dropdown - Compact */}
+            <div className="relative w-32 sm:min-w-[200px] flex-shrink-0">
+              <ArrowUpDown className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 size-3.5 sm:size-5 text-gray-400 pointer-events-none" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="w-full pl-8 sm:pl-12 pr-2 sm:pr-4 py-2 sm:py-3.5 text-xs sm:text-base rounded-lg sm:rounded-xl border-2 border-gray-200 focus:border-red-600 focus:outline-none transition-all appearance-none bg-white cursor-pointer"
+              >
+                {sortOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Mobile Filter Button - Compact */}
+            <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+              <SheetTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="default"
+                  className="lg:hidden relative border-2 border-gray-200 hover:border-red-600 px-2.5 sm:px-4 py-2 sm:py-3.5 h-auto flex-shrink-0"
+                >
+                  <SlidersHorizontal className="size-3.5 sm:size-5" />
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 size-4 sm:size-5 bg-red-600 text-white text-[10px] sm:text-xs rounded-full flex items-center justify-center font-bold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[85vw] sm:w-[400px] overflow-y-auto p-0">
+                <SheetHeader className="px-4 py-4 border-b sticky top-0 bg-white z-10">
+                  <SheetTitle>Filtros</SheetTitle>
+                </SheetHeader>
+                <div className="px-4 py-4">
+                  <ProductFilters
+                    categories={categories}
+                    availableSpecs={availableSpecs}
+                    priceRange={priceRange}
+                    filters={filters}
+                    onUpdateFilter={(key, value) => {
+                      updateFilter(key, value);
+                      if (key === 'category') {
+                        onCategoryChange(value);
+                      }
+                    }}
+                    onUpdateSpecFilter={updateSpecificationFilter}
+                    onClearFilters={() => {
+                      clearFilters();
+                      onCategoryChange('all');
+                    }}
+                    activeFilterCount={activeFilterCount}
+                  />
+                </div>
+                <div className="sticky bottom-0 p-4 border-t bg-white">
+                  <Button 
+                    onClick={() => setIsFilterOpen(false)} 
+                    className="w-full bg-red-600 hover:bg-red-700"
+                  >
+                    Ver {filteredProducts.length} {filteredProducts.length === 1 ? 'Produto' : 'Produtos'}
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          {/* Active Filters Display - Mobile Optimized */}
+          {activeFilterCount > 0 && (
+            <div className="mt-2 sm:mt-3 flex items-start gap-2 flex-wrap">
+              <span className="text-[10px] sm:text-sm text-gray-600 font-medium pt-1.5">Filtros:</span>
+              
+              {filters.category && filters.category !== 'all' && (
+                <button
+                  onClick={() => {
+                    updateFilter('category', 'all');
+                    onCategoryChange('all');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-red-200 transition-all"
+                >
+                  <span className="truncate max-w-[120px]">{filters.category}</span>
+                  <X className="size-3.5 flex-shrink-0" />
+                </button>
+              )}
+
+              {filters.inStock && (
+                <button
+                  onClick={() => updateFilter('inStock', false)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-red-200 transition-all"
+                >
+                  Em estoque
+                  <X className="size-3.5" />
+                </button>
+              )}
+
+              {(filters.minPrice !== undefined || filters.maxPrice !== undefined) && (
+                <button
+                  onClick={() => {
+                    updateFilter('minPrice', undefined);
+                    updateFilter('maxPrice', undefined);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-red-200 transition-all"
+                >
+                  Faixa de preço
+                  <X className="size-3.5" />
+                </button>
+              )}
+
+              <button
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs sm:text-sm font-medium hover:bg-gray-300 transition-all"
+              >
+                Limpar todos
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content - Mobile Optimized */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid lg:grid-cols-4 gap-4 sm:gap-8">
+          {/* Filters Sidebar - Desktop Only */}
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="sticky top-[200px]">
+              <ProductFilters
+                categories={categories}
+                availableSpecs={availableSpecs}
+                priceRange={priceRange}
+                filters={filters}
+                onUpdateFilter={(key, value) => {
+                  updateFilter(key, value);
+                  if (key === 'category') {
+                    onCategoryChange(value);
+                  }
+                }}
+                onUpdateSpecFilter={updateSpecificationFilter}
+                onClearFilters={() => {
+                  clearFilters();
+                  onCategoryChange('all');
+                }}
+                activeFilterCount={activeFilterCount}
+              />
+            </div>
+          </div>
+
+          {/* Products Grid - Mobile Optimized */}
+          <div className="lg:col-span-3">
+            {filteredProducts.length === 0 ? (
+              <EmptyState
+                icon={Package}
+                title="Nenhum produto encontrado"
+                description={
+                  searchQuery
+                    ? `Não encontramos produtos para "${searchQuery}". Tente ajustar os filtros ou buscar por outros termos.`
+                    : 'Não há produtos disponíveis nesta categoria no momento.'
+                }
+                actionLabel="Limpar Filtros"
+                onAction={clearFilters}
+              />
+            ) : (
+              <div className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6'
+                  : 'space-y-4'
+              }>
+                {filteredProducts
+                  .filter(product => product && product.id && typeof product.preco_aoa === 'number')
+                  .map((product, index) => (
+                  <div
+                    key={product.id}
+                    className="animate-slide-in-bottom"
+                    style={{ animationDelay: `${index * 30}ms` }}
+                  >
+                    <ProductCard
+                      product={product}
+                      onViewDetails={onViewProduct}
+                      onAddToCart={onAddToCart}
+                      isInWishlist={isInWishlist?.(product.id)}
+                      onToggleWishlist={onToggleWishlist}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination could go here in the future */}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

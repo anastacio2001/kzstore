@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { getBlogPosts, BlogPost } from '../services/blogService';
 import { AdBanner } from './AdBanner';
 import { NewsletterForm } from './NewsletterForm';
+import { BlogInteractions } from './BlogInteractions';
 
 type FlashSale = {
   id: string;
@@ -220,6 +221,13 @@ export function BlogPage({ onBack, onViewProduct, onNavigateToProduct }: BlogPag
                 </div>
 
                 {renderContent(selectedPost.content)}
+
+                {/* Blog Interactions: Like, Comments, Share */}
+                <BlogInteractions 
+                  postId={selectedPost.id}
+                  postTitle={selectedPost.title}
+                  postUrl={window.location.href}
+                />
 
                 {selectedPost.tags && selectedPost.tags.length > 0 && (
                   <div className="mt-12 pt-8 border-t">

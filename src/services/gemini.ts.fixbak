@@ -1,0 +1,259 @@
+/**
+ * KZSTORE AI Chatbot Service
+ * Integração com Google Gemini AI
+ */
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
+
+// Importar serviço de produtos
+import * as productsService from './productsService';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+/**
+ * Obter contexto da loja (produtos, categorias, etc.)
+ */
+async function getStoreContext(): Promise<string> {
+  try {
+    const products = await productsService.getAllProducts();
+    
+    // Agrupar por categoria
+    const categories = [...new Set(products.map(p => p.categoria))];
+    
+    const context = `
+INFORMAÇÕES DA LOJA:
+- Nome: KZSTORE
+- Especialidade: Produtos eletrônicos e componentes de TI
+- Categorias: ${categories.join(', ')}
+- Total de produtos: ${products.length}
+- Formas de pagamento: Multicaixa Express, Transferência Bancária, TPA
+- Entrega: 2-3 dias úteis em Luanda
+- WhatsApp: +244931054015
+
+PRINCIPAIS PRODUTOS:
+${products.slice(0, 10).map(p => `- ${p.nome}: ${p.preco.toLocaleString('pt-AO')} Kz (${p.estoque > 0 ? 'Disponível' : 'Esgotado'})`).join('\n')}
+    `.trim();
+    
+    return context;
+  } catch (error) {
+    console.error('Error getting store context:', error);
+    return 'KZSTORE - Loja de eletrônicos em Angola';
+  }
+}
+
+/**
+ * Envia mensagem para o Gemini AI
+ */
+export async function sendChatMessage(
+  userMessage: string,
+  conversationHistory: ChatMessage[] = []
+): Promise<string> {
+  try {
+    // Verificar se API key está configurada
+    if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === '') {
+      throw new Error('GEMINI_API_KEY_NOT_CONFIGURED');
+    }
+
+
+    // Obter contexto da loja
+    const storeContext = await getStoreContext();
+
+    // Montar histórico de conversa
+    const history = conversationHistory.slice(-5).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
+
+    // System prompt
+    const systemPrompt = `Você é um assistente virtual inteligente da KZSTORE, a principal loja online de Angola especializada em tecnologia e eletrônicos de qualidade.
+
+${storeContext}
+
+🎯 PERSONALIDADE E TOM:
+- Profissional, mas amigável e acessível
+- Entusiasta de tecnologia, mas não técnico demais
+- Confiante nas soluções que oferece
+- Empático com as necessidades do cliente
+- Use português de Angola (evite brasileirismos)
+
+📋 DIRETRIZES IMPORTANTES:
+
+1. **PRODUTOS E PREÇOS:**
+   - Sempre sugira produtos específicos com preços em Kwanzas (Kz)
+   - Indique claramente a disponibilidade (✅ Em estoque / ⏳ Sob encomenda / ❌ Esgotado)
+   - Mencione garantia quando relevante
+   - Compare opções quando apropriado (bom, melhor, premium)
+
+2. **PAGAMENTO:**
+   - Formas aceitas: Multicaixa Express, Transferência Bancária, TPA
+   - Pagamento seguro e facilitado
+   - Possibilidade de negociação para grandes quantidades
+
+3. **ENTREGA:**
+   - Luanda: 2-3 dias úteis
+   - Outras províncias: 5-7 dias úteis
+   - Entregas rastreáveis
+   - Embalagem segura
+
+4. **ATENDIMENTO HUMANO:**
+   - Para pedidos, negociações ou dúvidas complexas, sempre sugira WhatsApp
+   - Número: +244 931 054 015
+   - Horário: Segunda a Sábado, 8h às 18h
+
+5. **ESTILO DE RESPOSTA:**
+   - Máximo 4 parágrafos curtos
+   - Use emojis estrategicamente (não exagere)
+   - Estruture com bullets quando listar produtos
+   - Sempre finalize com uma pergunta ou call-to-action
+
+6. **SITUAÇÕES ESPECIAIS:**
+   - Produto esgotado: Sugira alternativas similares
+   - Dúvida técnica complexa: Recomende WhatsApp
+   - Preço não disponível: Sugira contato direto
+   - Quantidade grande: Mencione possibilidade de desconto
+
+✨ EXEMPLO DE RESPOSTA PERFEITA:
+
+"Excelente escolha! 👍 Temos ótimas opções de SSD NVMe com preços competitivos:
+
+**Opções Disponíveis:**
+• Kingston NV2 256GB - 18.500 Kz ✅ Em estoque
+• WD Blue SN570 500GB - 32.000 Kz ✅ Em estoque
+• Samsung 980 PRO 1TB - 65.000 Kz ✅ Em estoque
+
+Todos com 3 anos de garantia e entrega em 2-3 dias em Luanda! 🚚
+
+Para qual uso vai precisar? Gaming, edição de vídeo ou uso geral?"
+
+🚫 EVITE:
+- Informações que você não tem certeza
+- Promessas que não pode cumprir
+- Respostas genéricas sem mencionar produtos
+- Textos muito longos e cansativos
+`;
+
+    // Fazer requisição para Gemini API
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: systemPrompt }]
+          },
+          ...history,
+          {
+            role: 'user',
+            parts: [{ text: userMessage }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 500
+        },
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Gemini API error:', errorData);
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Extrair resposta
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!aiResponse) {
+      throw new Error('No response from Gemini AI');
+    }
+
+    return aiResponse.trim();
+
+  } catch (error) {
+    console.error('❌ Error in Gemini AI service:', error);
+    
+    // Resposta de fallback
+    return `Desculpe, estou com dificuldades técnicas no momento. 😅
+
+Por favor, entre em contato diretamente via WhatsApp +244931054015 para atendimento imediato.
+
+Nossa equipe está pronta para ajudar com:
+• Consulta de produtos e preços
+• Informações sobre estoque
+• Processamento de pedidos
+• Suporte técnico
+
+Horário de atendimento: Segunda a Sábado, 8h às 18h`;
+  }
+}
+
+/**
+ * Busca produtos por consulta
+ */
+export async function searchProducts(query: string): Promise<any[]> {
+  try {
+    const products = await productsService.getAllProducts();
+    
+    const searchTerms = query.toLowerCase().split(' ');
+    
+    return products.filter(product => {
+      const searchableText = `
+        ${product.nome} 
+        ${product.descricao} 
+        ${product.categoria} 
+        ${product.subcategoria}
+        ${JSON.stringify(product.especificacoes || {})}
+      `.toLowerCase();
+      
+      return searchTerms.some(term => searchableText.includes(term));
+    }).slice(0, 5);
+  } catch (error) {
+    console.error('Error searching products:', error);
+    return [];
+  }
+}
+
+/**
+ * Gera sugestões de produtos baseado na consulta do usuário
+ */
+export async function getProductSuggestions(userMessage: string): Promise<string> {
+  try {
+    const products = await searchProducts(userMessage);
+    
+    if (products.length === 0) {
+      return '';
+    }
+
+    const suggestions = products.map(p => 
+      `• **${p.nome}** - ${p.preco.toLocaleString('pt-AO')} Kz ${p.estoque > 0 ? '✅' : '❌ Esgotado'}`
+    ).join('\n');
+
+    return `\n\n**Produtos relacionados:**\n${suggestions}`;
+  } catch (error) {
+    console.error('Error getting product suggestions:', error);
+    return '';
+  }
+}
+

@@ -1,0 +1,123 @@
+import { useState, useEffect } from 'react';
+import { Truck, MapPin, DollarSign, Clock } from 'lucide-react';
+import { Button } from './ui/button';
+import { buildAPIURL } from '../utils/api';
+
+type ShippingZone = {
+  id: string;
+  name: string;
+  province: string;
+  cost: number;
+  estimated_days: number;
+};
+
+type ShippingCalculatorProps = {
+  onCalculate?: (cost: number, days: number) => void;
+  defaultProvince?: string;
+};
+
+export function ShippingCalculator({ onCalculate, defaultProvince }: ShippingCalculatorProps) {
+  const [zones, setZones] = useState<ShippingZone[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState(defaultProvince || 'Luanda');
+  const [shippingCost, setShippingCost] = useState(3500);
+  const [estimatedDays, setEstimatedDays] = useState(3);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchZones();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProvince) {
+      calculateShipping();
+    }
+  }, [selectedProvince]);
+
+  const fetchZones = async () => {
+    try {
+      const response = await fetch(buildAPIURL('/shipping-zones'));
+      const data = await response.json();
+      setZones(data.zones || []);
+    } catch (error) {
+      console.error('Error fetching shipping zones:', error);
+    }
+  };
+
+  const calculateShipping = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(buildAPIURL('/shipping-zones/calculate?province=${encodeURIComponent(selectedProvince)}'));
+      const data = await response.json();
+      
+      setShippingCost(data.cost);
+      setEstimatedDays(data.estimated_days);
+      
+      if (onCalculate) {
+        onCalculate(data.cost, data.estimated_days);
+      }
+    } catch (error) {
+      console.error('Error calculating shipping:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const provinces = [
+    'Luanda', 'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cuando Cubango',
+    'Cuanza Norte', 'Cuanza Sul', 'Cunene', 'Huambo', 'Huíla', 'Lunda Norte',
+    'Lunda Sul', 'Malanje', 'Moxico', 'Namibe', 'Uíge', 'Zaire'
+  ];
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+      <div className="flex items-center gap-2 text-gray-900">
+        <Truck className="size-5" />
+        <h3 className="font-semibold">Calcular Frete</h3>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          <MapPin className="inline size-4 mr-1" />
+          Selecione sua província
+        </label>
+        <select
+          value={selectedProvince}
+          onChange={(e) => setSelectedProvince(e.target.value)}
+          className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none transition-colors"
+        >
+          {provinces.map(province => (
+            <option key={province} value={province}>{province}</option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-4">
+          <div className="size-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 text-gray-700">
+              <DollarSign className="size-4" />
+              <span className="text-sm font-medium">Custo de Envio</span>
+            </div>
+            <span className="text-lg font-bold text-red-600">
+              {shippingCost.toLocaleString('pt-AO')} Kz
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 text-gray-700">
+              <Clock className="size-4" />
+              <span className="text-sm font-medium">Prazo de Entrega</span>
+            </div>
+            <span className="text-sm font-semibold text-gray-900">
+              {estimatedDays} {estimatedDays === 1 ? 'dia' : 'dias'} úteis
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

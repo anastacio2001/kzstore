@@ -1,0 +1,212 @@
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Package, CheckCircle, CreditCard, Upload, Phone } from 'lucide-react';
+import { BANK_ACCOUNTS } from '../config/constants';
+import { buildAPIURL } from '../utils/api';
+
+interface PreOrderFormProps {
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    image?: string;
+    estimated_arrival?: string;
+    deposit_percentage?: number; // Percentual de sinal (ex: 30, 45, 50)
+  };
+  trigger?: React.ReactNode;
+}
+
+export default function PreOrderForm({ product, trigger }: PreOrderFormProps) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<'multicaixa' | 'transfer'>('multicaixa');
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [preOrderId, setPreOrderId] = useState('');
+
+  // Usar percentual dinâmico ou 30% por padrão
+  const depositPercentage = product.deposit_percentage || 30;
+  const depositAmount = Math.round(product.price * quantity * (depositPercentage / 100));
+  const totalAmount = product.price * quantity;
+  const remainingAmount = totalAmount - depositAmount;
+
+  const handleStep1Submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep(2);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) setPaymentProof(e.target.files[0]);
+  };
+
+  const uploadProof = async () => {
+    if (!paymentProof) return null;
+    try {
+      const formData = new FormData();
+      formData.append('image', paymentProof);
+      console.log('📤 Uploading proof:', paymentProof.name);
+      
+      const res = await fetch(buildAPIURL('/upload'), { method: 'POST', body: formData });
+      console.log('📥 Upload response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Upload error:', errorText);
+        return null;
+      }
+      
+      const data = await res.json();
+      console.log('✅ Upload success:', data.url);
+      return data.url;
+    } catch (error) {
+      console.error('❌ Upload exception:', error);
+      return null;
+    }
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentProof) {
+      alert('Por favor, envie o comprovativo de pagamento');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      console.log('🔄 Iniciando upload do comprovativo...');
+      const proofUrl = await uploadProof();
+      
+      if (!proofUrl) {
+        alert('Erro ao fazer upload do comprovativo. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('🔄 Criando pré-venda...');
+      const res = await fetch(buildAPIURL('/pre-orders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_name: name,
+          user_email: email,
+          product_id: product.id,
+          product_name: product.name,
+          quantity,
+          price: product.price,
+          total: totalAmount,
+          estimated_delivery: product.estimated_arrival || 'A confirmar',
+          paid_amount: depositAmount,
+          payment_proof: proofUrl,
+          notes: `${paymentMethod === 'multicaixa' ? 'Multicaixa Express' : 'Transferência Bancária'}\nTelefone: ${phone}`,
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Erro ao criar pré-venda:', errorText);
+        alert('Erro ao criar pré-venda. Tente novamente.');
+        return;
+      }
+      
+      const data = await res.json();
+      console.log('✅ Pré-venda criada:', data.id);
+      setPreOrderId(data.id);
+      setStep(3);
+    } catch (error) {
+      console.error('❌ Erro geral:', error);
+      alert('Erro ao processar pré-venda. Verifique sua conexão e tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reset = () => { setStep(1); setName(''); setEmail(''); setPhone(''); setQuantity(1); setPaymentProof(null); setOpen(false); };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || <Button className="bg-yellow-500 hover:bg-yellow-600 text-black w-full"><Package className="h-4 w-4 mr-2" />Reservar</Button>}
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Pré-venda - {product.name}</DialogTitle>
+          <DialogDescription>Pague {depositPercentage}% agora • Restante na retirada</DialogDescription>
+        </DialogHeader>
+
+        {step === 1 && (
+          <form onSubmit={handleStep1Submit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded">
+              <div><span className="text-sm text-gray-600">Sinal ({depositPercentage}%)</span><p className="font-bold text-lg text-green-600">{depositAmount.toLocaleString()} Kz</p></div>
+              <div><span className="text-sm text-gray-600">Na retirada</span><p className="font-bold text-lg">{remainingAmount.toLocaleString()} Kz</p></div>
+            </div>
+            <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} required /></div>
+            <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+            <div><Label>Telefone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} required /></div>
+            <div><Label>Quantidade</Label><Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(+e.target.value || 1)} /></div>
+            <Button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-600 text-black">Continuar</Button>
+          </form>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handlePaymentSubmit} className="space-y-4">
+            <div className="p-4 bg-green-50 rounded border border-green-200">
+              <h4 className="font-semibold mb-2">Sinal</h4>
+              <p className="text-3xl font-bold text-green-600">{depositAmount.toLocaleString()} Kz</p>
+            </div>
+            <div><Label>Método</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button type="button" onClick={() => setPaymentMethod('multicaixa')} className={`p-4 border-2 rounded ${paymentMethod === 'multicaixa' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                  <CreditCard className="h-5 w-5 mb-2" /><p className="font-medium">Multicaixa</p>
+                </button>
+                <button type="button" onClick={() => setPaymentMethod('transfer')} className={`p-4 border-2 rounded ${paymentMethod === 'transfer' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                  <Phone className="h-5 w-5 mb-2" /><p className="font-medium">Transferência</p>
+                </button>
+              </div>
+            </div>
+            {paymentMethod === 'multicaixa' && <div className="p-4 bg-gray-50 rounded"><p className="text-sm"><strong>Entidade:</strong> 11604</p><p className="text-sm"><strong>Ref:</strong> 123456789</p></div>}
+            {paymentMethod === 'transfer' && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-sm mb-2 font-semibold text-blue-900">Dados para Transferência:</p>
+                <p className="text-sm"><strong>Banco:</strong> {BANK_ACCOUNTS.bai.name}</p>
+                <p className="text-sm"><strong>IBAN:</strong> {BANK_ACCOUNTS.bai.iban}</p>
+                <p className="text-sm"><strong>Titular:</strong> {BANK_ACCOUNTS.bai.titular}</p>
+              </div>
+            )}
+            <div><Label>Comprovativo *</Label>
+              <div className="border-2 border-dashed p-6 text-center rounded">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <Input type="file" accept="image/*,.pdf" onChange={handleFileChange} className="hidden" id="proof" required />
+                <label htmlFor="proof" className="cursor-pointer text-sm text-blue-600">{paymentProof?.name || 'Enviar comprovativo'}</label>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">Voltar</Button>
+              <Button type="submit" disabled={loading || !paymentProof} className="flex-1 bg-green-600">{loading ? 'Processando...' : 'Confirmar'}</Button>
+            </div>
+          </form>
+        )}
+
+        {step === 3 && (
+          <div className="text-center py-8">
+            <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold mb-2">Reserva Confirmada!</h3>
+            <p className="text-gray-600 mb-4">Analisaremos seu pagamento em breve.</p>
+            <div className="p-4 bg-blue-50 rounded mb-6 text-left">
+              <p className="text-sm"><strong>Protocolo:</strong> #{preOrderId.slice(0, 8).toUpperCase()}</p>
+              <p className="text-sm"><strong>Email:</strong> {email}</p>
+            </div>
+            <Button onClick={reset} className="w-full">Fechar</Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

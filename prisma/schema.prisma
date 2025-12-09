@@ -1,6 +1,6 @@
 // ============================================
-// KZSTORE - Prisma Schema para MySQL
-// Migrado do Supabase PostgreSQL
+// KZSTORE - Prisma Schema para PostgreSQL (Neon)
+// Migrado do MySQL Cloud SQL
 // ============================================
 
 generator client {
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -591,7 +591,7 @@ model Advertisement {
   // Conteúdo
   titulo           String    @db.VarChar(255)
   descricao        String?   @db.Text
-  imagem_url_v2    String    @db.MediumText  @map("imagem_url_v2") // MediumText para suportar imagens base64 grandes (até 16MB)
+  imagem_url_v2    String    @db.Text  @map("imagem_url_v2") // Text para suportar imagens base64 grandes
   link_url         String?   @db.VarChar(500)
   
   // Configuração
@@ -798,7 +798,7 @@ model BlogPost {
   title             String    @db.VarChar(255)
   slug              String    @unique @db.VarChar(255)
   excerpt           String?   @db.Text // Resumo/descrição curta
-  content           String    @db.LongText // Conteúdo completo (suporta HTML/Markdown)
+  content           String    @db.Text // Conteúdo completo (suporta HTML/Markdown)
   
   // Imagens
   cover_image       String?   @db.VarChar(500) // Imagem de capa

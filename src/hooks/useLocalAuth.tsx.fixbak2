@@ -1,0 +1,215 @@
+/**
+ * Sistema de Autenticação Local Temporário
+ *
+ * IMPORTANTE: Este é um sistema TEMPORÁRIO para resolver o problema de login
+ * sem depender do Supabase. Em produção, deve ser substituído por JWT.
+ *
+ * Funcionalidades:
+ * - Login simples com email (sem senha por enquanto)
+ * - Persistência no localStorage
+ * - Geração de user_id único
+ * - Compatível com o sistema atual
+ */
+
+import { useState, useEffect } from 'react';
+import { buildAPIURL } from '../../utils/api';
+
+type LocalUser = {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  role: 'customer' | 'admin';
+  created_at: string;
+};
+
+const STORAGE_KEY = 'kzstore_local_users';
+const SESSION_KEY = 'kzstore_local_session';
+
+/**
+ * Gera um ID único e consistente para o usuário baseado no email
+ * Se o usuário já existe, retorna o mesmo ID
+ */
+function generateUserId(email: string): string {
+  // Verificar se já existe ID para este email
+  const savedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+  if (savedUsers[email]?.id) {
+    return savedUsers[email].id;
+  }
+
+  // Gerar novo ID baseado no email (consistente)
+  const hash = email.split('').reduce((acc, char) => {
+    return char.charCodeAt(0) + ((acc << 5) - acc);
+  }, 0);
+
+  // Usar hash + timestamp para garantir unicidade
+  return `local_${Math.abs(hash).toString(36)}_${Date.now().toString(36)}`;
+}
+
+/**
+ * Verifica se o email é de admin
+ */
+function isAdminEmail(email: string): boolean {
+  const adminEmails = [
+    'admin@kzstore.ao',
+    'admin@kzstore.com',
+    'geral@kzstore.com',
+    'geral@kzstore.ao'
+  ];
+  return adminEmails.includes(email.toLowerCase());
+}
+
+export function useLocalAuth() {
+  const [user, setUser] = useState<LocalUser | null>(() => {
+    // Tentar carregar sessão salva
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        return session;
+      } catch (error) {
+        // Session parse error
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }
+    return null;
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!user);
+
+  // Salvar sessão quando o usuário mudar
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+      setIsAuthenticated(true);
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+      setIsAuthenticated(false);
+    }
+  }, [user]);
+
+  /**
+   * Login simples com email
+   */
+  const loginWithEmail = async (email: string, name?: string): Promise<LocalUser> => {
+
+    // Verificar se já existe usuário salvo com este email
+    const savedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+    let userData: LocalUser;
+
+    if (savedUsers[email]) {
+      // Usuário já existe
+      userData = savedUsers[email];
+    } else {
+      // Criar novo usuário
+      userData = {
+        id: generateUserId(email),
+        email,
+        name: name || email.split('@')[0],
+        role: isAdminEmail(email) ? 'admin' : 'customer',
+        created_at: new Date().toISOString()
+      };
+
+      // Salvar novo usuário
+      savedUsers[email] = userData;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedUsers));
+    }
+
+    // Atualizar nome se fornecido
+    if (name && userData.name !== name) {
+      userData.name = name;
+      savedUsers[email] = userData;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedUsers));
+    }
+
+    setUser(userData);
+    // Dispatch global auth change for other listeners
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kzstore:authChange', { detail: { id: userData.id, email: userData.email, role: userData.role, name: userData.name, phone: userData.phone } }));
+    }
+    return userData;
+  };
+
+  /**
+   * Login rápido para checkout (guest ou registrado)
+   * Usa o backend para criar/buscar usuário
+   */
+  const quickLogin = async (email: string, name: string, phone?: string): Promise<LocalUser> => {
+
+    try {
+      const response = await fetch(buildAPIURL('/auth/quick-login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name, phone })
+      });
+
+      if (!response.ok) {
+        throw new Error('Quick login failed');
+      }
+
+      const data = await response.json();
+
+      const userData: LocalUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        phone: data.user.phone,
+        role: data.user.role,
+        created_at: new Date().toISOString()
+      };
+
+      setUser(userData);
+      // Dispatch global auth change for other listeners
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kzstore:authChange', { detail: { id: userData.id, email: userData.email, role: userData.role, name: userData.name, phone: userData.phone } }));
+      }
+      return userData;
+    } catch (error) {
+      console.error('❌ [useLocalAuth] Quick login error:', error);
+      // Fallback para método local
+      return await loginWithEmail(email, name);
+    }
+  };
+
+  /**
+   * Logout
+   */
+  const logout = () => {
+    setUser(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kzstore:authChange', { detail: null }));
+    }
+  };
+
+  /**
+   * Verificar se é admin
+   */
+  const isAdmin = () => {
+    return user?.role === 'admin';
+  };
+
+  /**
+   * Atualizar dados do usuário
+   */
+  const updateUser = (updates: Partial<LocalUser>) => {
+    if (!user) return;
+
+    const updatedUser = { ...user, ...updates };
+    const savedUsers = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    savedUsers[user.email] = updatedUser;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedUsers));
+    setUser(updatedUser);
+  };
+
+  return {
+    user,
+    isAuthenticated,
+    isAdmin,
+    loginWithEmail,
+    quickLogin,
+    logout,
+    updateUser
+  };
+}

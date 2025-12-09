@@ -1,0 +1,240 @@
+import { useState, useEffect } from 'react';
+import { Product } from '../App';
+import { useAuth } from './useAuth';
+import { toast } from 'sonner';
+import { tiktokEvents } from '../utils/tiktok-events'; // 🎯 TikTok Pixel Events
+import { buildAPIURL } from '../../utils/api';
+
+export function useWishlist() {
+  const { user } = useAuth();
+  const [wishlist, setWishlist] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load wishlist on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadWishlistFromAPI();
+    } else {
+      loadWishlistFromLocalStorage();
+    }
+  }, [user?.id]);
+
+  const loadWishlistFromAPI = async () => {
+    if (!user?.id) return;
+    
+    setLoading(true);
+    try {
+      // Get token from localStorage
+      let token = localStorage.getItem('token');
+      if (!token) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const userData = JSON.parse(userStr);
+            token = userData.access_token || userData.token;
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(buildAPIURL('/favorites'), { 
+        credentials: 'include',
+        headers 
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const products = data.favorites.map((fav: any) => fav.product);
+        setWishlist(products);
+      }
+    } catch (error) {
+      console.error('Error loading wishlist from API:', error);
+      loadWishlistFromLocalStorage();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadWishlistFromLocalStorage = () => {
+    const saved = localStorage.getItem('kzstore_wishlist');
+    if (saved) {
+      try {
+        setWishlist(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading wishlist from localStorage:', error);
+      }
+    }
+  };
+
+  // Save wishlist to localStorage for non-logged users
+  useEffect(() => {
+    if (!user?.id) {
+      localStorage.setItem('kzstore_wishlist', JSON.stringify(wishlist));
+    }
+  }, [wishlist, user?.id]);
+
+  const addToWishlist = async (product: Product) => {
+    if (user?.id) {
+      // Logged in: save to API
+      try {
+        // Get token from localStorage
+        let token = localStorage.getItem('token');
+        if (!token) {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              token = userData.access_token || userData.token;
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(buildAPIURL('/favorites'), {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            product_id: product.id,
+          }),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          setWishlist(prev => {
+            if (prev.find(p => p.id === product.id)) return prev;
+            return [...prev, product];
+          });
+          
+          // 🎯 TikTok Pixel: Rastrear AddToWishlist
+          tiktokEvents.addToWishlist({
+            id: product.id,
+            nome: product.nome,
+            preco_aoa: product.preco_aoa
+          });
+          
+          toast.success('Adicionado aos favoritos!');
+        } else {
+          toast.error('Erro ao adicionar aos favoritos');
+        }
+      } catch (error) {
+        console.error('Error adding to wishlist:', error);
+        toast.error('Erro ao adicionar aos favoritos');
+      }
+    } else {
+      // Not logged in: save to localStorage
+      setWishlist(prev => {
+        if (prev.find(p => p.id === product.id)) {
+          toast.info('Produto já está nos favoritos');
+          return prev;
+        }
+        
+        // 🎯 TikTok Pixel: Rastrear AddToWishlist
+        tiktokEvents.addToWishlist({
+          id: product.id,
+          nome: product.nome,
+          preco_aoa: product.preco_aoa
+        });
+        
+        toast.success('Adicionado aos favoritos!');
+        return [...prev, product];
+      });
+    }
+  };
+
+  const removeFromWishlist = async (productId: string) => {
+    if (user?.id) {
+      // Logged in: remove from API
+      try {
+        // Get token from localStorage
+        let token = localStorage.getItem('token');
+        if (!token) {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              token = userData.access_token || userData.token;
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+
+        const headers: HeadersInit = {};
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(buildAPIURL('/favorites/${productId}'), {
+          method: 'DELETE',
+          credentials: 'include',
+          headers
+        });
+
+        if (response.ok) {
+          setWishlist(prev => prev.filter(p => p.id !== productId));
+          toast.success('Removido dos favoritos');
+        } else {
+          toast.error('Erro ao remover dos favoritos');
+        }
+      } catch (error) {
+        console.error('Error removing from wishlist:', error);
+        toast.error('Erro ao remover dos favoritos');
+      }
+    } else {
+      // Not logged in: remove from localStorage
+      setWishlist(prev => prev.filter(p => p.id !== productId));
+      toast.success('Removido dos favoritos');
+    }
+  };
+
+  const isInWishlist = (productId: string) => {
+    return wishlist.some(p => p.id === productId);
+  };
+
+  const toggleWishlist = async (product: Product) => {
+    if (isInWishlist(product.id)) {
+      await removeFromWishlist(product.id);
+      return false;
+    } else {
+      await addToWishlist(product);
+      return true;
+    }
+  };
+
+  const clearWishlist = () => {
+    setWishlist([]);
+    if (!user?.id) {
+      localStorage.removeItem('kzstore_wishlist');
+    }
+  };
+
+  return {
+    wishlist,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+    toggleWishlist,
+    clearWishlist,
+    wishlistCount: wishlist.length,
+    loading,
+  };
+}

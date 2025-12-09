@@ -35,6 +35,16 @@ export function ProductsPage({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { products, fetchProducts, loading } = useKZStore();
   
+  // 🔥 DEBUG: Monitorar mudanças no products
+  useEffect(() => {
+    console.log('📦 [ProductsPage] products changed:', {
+      count: products?.length || 0,
+      firstProduct: products?.[0]?.nome || 'none',
+      productsType: typeof products,
+      isArray: Array.isArray(products)
+    });
+  }, [products]);
+  
   const {
     searchQuery,
     setSearchQuery,
@@ -52,7 +62,13 @@ export function ProductsPage({
   } = useProductSearch(products);
 
   useEffect(() => {
-    fetchProducts();
+    console.log('🚀 [ProductsPage] Component mounted, calling fetchProducts...');
+    console.log('📊 [ProductsPage] Current products count:', products?.length || 0);
+    fetchProducts().then(() => {
+      console.log('✅ [ProductsPage] fetchProducts completed');
+    }).catch((err) => {
+      console.error('❌ [ProductsPage] fetchProducts failed:', err);
+    });
   }, []);
 
   // Sync selected category with filters

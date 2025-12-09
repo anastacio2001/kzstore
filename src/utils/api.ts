@@ -4,8 +4,22 @@
  * Atualizado em 28/11/2025 - Authorization Bearer Token
  */
 
-// API Local - Prisma/MySQL (via Vite Proxy)
-const API_BASE_URL = '/api';
+// API Base URL - usa variável de ambiente ou fallback para /api
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Export API_BASE_URL for use in other components
+export function getAPIBaseURL(): string {
+  return API_BASE_URL;
+}
+
+// Helper para construir URL completa do endpoint
+export function buildAPIURL(endpoint: string): string {
+  // Remove /api/ do início se existir para evitar duplicação
+  const cleanEndpoint = endpoint.startsWith('/api/') ? endpoint.slice(4) : endpoint;
+  // Remove / do início se existir
+  const path = cleanEndpoint.startsWith('/') ? cleanEndpoint : `/${cleanEndpoint}`;
+  return `${API_BASE_URL}${path}`;
+}
 
 // Helper para obter token do localStorage
 function getAuthToken(): string | null {
@@ -171,6 +185,8 @@ export interface LoyaltyHistory {
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  console.log(`🔵 [fetchAPI] Calling: ${url}`);
+  
   // Sempre incluir Authorization header se token disponível
   const authHeaders = getAuthHeaders();
   const headers = {
@@ -185,17 +201,40 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
       credentials: 'include', // Ainda inclui cookies por compatibilidade
     });
 
+    console.log(`📡 [fetchAPI] Response status: ${response.status} ${response.statusText}`);
+    
     const data = await response.json();
+    
+    console.log(`📦 [fetchAPI] Response data keys:`, Object.keys(data));
+    console.log(`📊 [fetchAPI] Response data.data length:`, data.data?.length);
 
     if (!response.ok) {
+      console.error(`❌ [fetchAPI] Response not OK:`, data);
       throw new Error(data.error || data.message || 'API request failed');
     }
 
     return data;
   } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
+    console.error(`❌ [fetchAPI] Error [${endpoint}]:`, error);
     throw error;
   }
+}
+
+// Helper para fazer fetch sem parsear JSON automaticamente (para casos especiais)
+export async function fetchAPIRaw(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const authHeaders = getAuthHeaders();
+  const headers = {
+    ...authHeaders,
+    ...options.headers,
+  };
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
 }
 
 // ============ PRODUCTS ============
@@ -212,9 +251,23 @@ export async function getProducts(filters?: {
   if (filters?.marca) params.append('marca', filters.marca);
   if (filters?.search) params.append('search', filters.search);
   
+  // Buscar TODOS os produtos (limite alto para obter todos)
+  params.append('limit', '1000');
+  
   const query = params.toString() ? `?${params.toString()}` : '';
-  const data = await fetchAPI(`/products${query}`);
-  return data.products as Product[];
+  const response = await fetchAPI(`/products${query}`);
+  
+  console.log(`📦 [API] Response structure:`, { 
+    hasData: !!response.data, 
+    hasProducts: !!response.products,
+    dataLength: response.data?.length,
+    productsLength: response.products?.length,
+    responseKeys: Object.keys(response)
+  });
+  
+  const result = (response.data || response.products || []) as Product[];
+  console.log(`✅ [API] Loaded ${result.length} products from API`);
+  return result;
 }
 
 export async function getProductById(id: string) {

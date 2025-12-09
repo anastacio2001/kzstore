@@ -1,0 +1,286 @@
+/**
+ * Customers Service - Gerenciamento de Clientes usando API Local
+ * @author KZSTORE
+ */
+
+const API_BASE = '/api';
+
+export interface Customer {
+  id: string;
+  user_id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  cpf?: string;
+  birth_date?: string;
+  addresses?: Address[];
+  preferences?: CustomerPreferences;
+  loyalty_points?: number;
+  loyalty_tier?: 'bronze' | 'silver' | 'gold' | 'platinum';
+  total_spent?: number;
+  total_orders?: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Address {
+  id: string;
+  type: 'billing' | 'shipping' | 'both';
+  full_name: string;
+  phone: string;
+  province: string;
+  city: string;
+  address: string;
+  postal_code?: string;
+  landmark?: string;
+  is_default: boolean;
+}
+
+export interface CustomerPreferences {
+  newsletter: boolean;
+  sms_notifications: boolean;
+  whatsapp_notifications: boolean;
+  favorite_categories?: string[];
+  language?: string;
+}
+
+/**
+ * Buscar todos os clientes
+ */
+export async function getAllCustomers(): Promise<Customer[]> {
+  try {
+    // Fetching customers
+    
+    const response = await fetch(`${API_BASE}/customers`);
+    if (!response.ok) throw new Error('Failed to fetch customers');
+    
+    const data = await response.json();
+    // Customers loaded
+    return data.customers || [];
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error fetching customers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Buscar cliente por ID
+ */
+export async function getCustomerById(id: string): Promise<Customer | null> {
+  try {
+    
+    const response = await fetch(`${API_BASE}/customers/${id}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error('Failed to fetch customer');
+    }
+    
+    const data = await response.json();
+    return data.customer;
+  } catch (error) {
+    console.error(`❌ [CUSTOMERS] Error fetching customer ${id}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Buscar cliente por email
+ */
+export async function getCustomerByEmail(email: string): Promise<Customer | null> {
+  try {
+    
+    const response = await fetch(`${API_BASE}/customers/email/${encodeURIComponent(email.toLowerCase())}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error('Failed to fetch customer');
+    }
+    
+    const data = await response.json();
+    return data.customer;
+  } catch (error) {
+    console.error(`❌ [CUSTOMERS] Error fetching customer by email:`, error);
+    return null;
+  }
+}
+
+/**
+ * Buscar cliente por user_id
+ */
+export async function getCustomerByUserId(userId: string): Promise<Customer | null> {
+  try {
+    const response = await fetch(`${API_BASE}/customers?user_id=${userId}`);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.customers?.[0] || null;
+  } catch (error) {
+    console.error(`❌ [CUSTOMERS] Error fetching customer by user_id:`, error);
+    return null;
+  }
+}
+
+/**
+ * Criar cliente
+ */
+export async function createCustomer(customerData: Omit<Customer, 'id' | 'created_at' | 'updated_at'>): Promise<Customer> {
+  try {
+    
+    const response = await fetch(`${API_BASE}/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...customerData,
+        email: customerData.email.toLowerCase(),
+        active: true,
+        loyalty_points: 0,
+        loyalty_tier: 'bronze',
+        total_spent: 0,
+        total_orders: 0,
+      }),
+    });
+
+    if (!response.ok) throw new Error('Failed to create customer');
+    
+    const data = await response.json();
+    return data.customer;
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error creating customer:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualizar cliente
+ */
+export async function updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer> {
+  try {
+
+    const response = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) throw new Error('Failed to update customer');
+    
+    const data = await response.json();
+    return data.customer;
+  } catch (error) {
+    console.error(`❌ [CUSTOMERS] Error updating customer ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Deletar cliente
+ */
+export async function deleteCustomer(id: string): Promise<void> {
+  try {
+    
+    const response = await fetch(`${API_BASE}/customers/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) throw new Error('Failed to delete customer');
+    
+  } catch (error) {
+    console.error(`❌ [CUSTOMERS] Error deleting customer ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Adicionar pontos de fidelidade
+ */
+export async function addLoyaltyPoints(customerId: string, points: number): Promise<Customer> {
+  try {
+    const customer = await getCustomerById(customerId);
+    if (!customer) throw new Error('Customer not found');
+
+    const newPoints = (customer.loyalty_points || 0) + points;
+    const newTier = calculateLoyaltyTier(newPoints);
+
+    return await updateCustomer(customerId, {
+      loyalty_points: newPoints,
+      loyalty_tier: newTier,
+    });
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error adding loyalty points:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calcular tier de fidelidade
+ */
+function calculateLoyaltyTier(points: number): 'bronze' | 'silver' | 'gold' | 'platinum' {
+  if (points >= 10000) return 'platinum';
+  if (points >= 5000) return 'gold';
+  if (points >= 1000) return 'silver';
+  return 'bronze';
+}
+
+/**
+ * Atualizar estatísticas após compra
+ */
+export async function updateCustomerStats(customerId: string, orderTotal: number): Promise<Customer> {
+  try {
+    const customer = await getCustomerById(customerId);
+    if (!customer) throw new Error('Customer not found');
+
+    const newTotalSpent = (customer.total_spent || 0) + orderTotal;
+    const newTotalOrders = (customer.total_orders || 0) + 1;
+    const points = Math.floor(orderTotal / 100); // 1 ponto por 100 Kz
+
+    return await updateCustomer(customerId, {
+      total_spent: newTotalSpent,
+      total_orders: newTotalOrders,
+      loyalty_points: (customer.loyalty_points || 0) + points,
+      loyalty_tier: calculateLoyaltyTier((customer.loyalty_points || 0) + points),
+    });
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error updating stats:', error);
+    throw error;
+  }
+}
+
+/**
+ * Buscar clientes ativos
+ */
+export async function getActiveCustomers(): Promise<Customer[]> {
+  try {
+    const customers = await getAllCustomers();
+    return customers.filter(c => c.active);
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error fetching active customers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Buscar clientes por tier
+ */
+export async function getCustomersByTier(tier: 'bronze' | 'silver' | 'gold' | 'platinum'): Promise<Customer[]> {
+  try {
+    const customers = await getAllCustomers();
+    return customers.filter(c => c.loyalty_tier === tier);
+  } catch (error) {
+    console.error('❌ [CUSTOMERS] Error fetching customers by tier:', error);
+    throw error;
+  }
+}
+
+/**
+ * Desativar cliente
+ */
+export async function deactivateCustomer(id: string): Promise<Customer> {
+  return await updateCustomer(id, { active: false });
+}
+
+/**
+ * Ativar cliente
+ */
+export async function activateCustomer(id: string): Promise<Customer> {
+  return await updateCustomer(id, { active: true });
+}

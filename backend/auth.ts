@@ -56,39 +56,86 @@ export function authMiddleware(req: any, res: Response, next: any) {
         const [scheme, t] = parts;
         if (/^Bearer$/i.test(scheme)) {
           token = t;
-          console.log('🔑 [AUTH] Token found in Authorization header');
         }
       }
     }
 
     if (!token && req.cookies && req.cookies.kz_jwt) {
       token = req.cookies.kz_jwt;
-      console.log('🍪 [AUTH] Token found in cookie');
     }
 
     if (!token) {
-      console.log('❌ [AUTH] No token found. Authorization:', req.headers?.authorization || 'none', 'Cookies:', Object.keys(req.cookies || {}));
       return res.status(401).json({ error: 'Token não fornecido' });
     }
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
-        console.log('❌ [AUTH] Token invalid:', err.message);
         return res.status(401).json({ error: 'Token inválido' });
       }
 
       const payload = decoded as JWTPayload;
       req.userId = payload.userId;
       req.userEmail = payload.email;
-      // Suportar tanto 'role' (de CustomerProfile) quanto 'userType' (de User table)
       req.userRole = payload.role || (payload as any).userType || 'customer';
-      
-      console.log('✅ [AUTH] Authenticated:', req.userEmail, 'Role:', req.userRole);
 
       return next();
     });
   } catch (error) {
     return res.status(401).json({ error: 'Token inválido' });
+  }
+}
+
+/**
+ * Middleware OPCIONAL - tenta autenticar mas permite continuar sem token (para guests)
+ */
+export function optionalAuthMiddleware(req: any, res: Response, next: any) {
+  try {
+    let token: string | undefined = undefined;
+
+    if (req.headers && req.headers.authorization && typeof req.headers.authorization === 'string') {
+      const authHeader = req.headers.authorization;
+      const parts = authHeader.split(' ');
+      if (parts.length === 2) {
+        const [scheme, t] = parts;
+        if (/^Bearer$/i.test(scheme)) {
+          token = t;
+        }
+      }
+    }
+
+    if (!token && req.cookies && req.cookies.kz_jwt) {
+      token = req.cookies.kz_jwt;
+    }
+
+    // Se não tem token, continua como guest
+    if (!token) {
+      req.userId = 'guest';
+      req.userEmail = null;
+      req.userRole = 'guest';
+      return next();
+    }
+
+    // Se tem token, valida
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (err) {
+        // Token inválido, continua como guest
+        req.userId = 'guest';
+        req.userEmail = null;
+        req.userRole = 'guest';
+      } else {
+        const payload = decoded as JWTPayload;
+        req.userId = payload.userId;
+        req.userEmail = payload.email;
+        req.userRole = payload.role || (payload as any).userType || 'customer';
+      }
+      return next();
+    });
+  } catch (error) {
+    // Em caso de erro, continua como guest
+    req.userId = 'guest';
+    req.userEmail = null;
+    req.userRole = 'guest';
+    return next();
   }
 }
 

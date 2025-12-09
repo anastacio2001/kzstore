@@ -1,4 +1,5 @@
 
+  import './utils/fetch-wrapper'; // 🔥 MUST BE FIRST - Wrapper global para fetch
   import { createRoot } from "react-dom/client";
   import App from "./App.tsx";
   import "./index.css";

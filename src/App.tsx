@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './utils/fetch-wrapper'; // 🔥 CRITICAL: Wrapper para fetch - DEVE SER PRIMEIRO
 import { checkAndUpdateVersion, clearDeprecatedStorage } from './utils/clearCache';
 import { useKZStore } from './hooks/useKZStore';
 import { useWishlist } from './hooks/useWishlist';
@@ -207,6 +208,19 @@ export default function App() {
     
     // Sempre limpar dados deprecated
     clearDeprecatedStorage();
+    
+    // 🔥 TESTE DIRETO DA API
+    console.log('🧪 [DEBUG] Testando conexão direta com API...');
+    fetch('https://kzstore-backend.fly.dev/api/products?limit=5')
+      .then(res => res.json())
+      .then(data => {
+        console.log('✅ [DEBUG] API Response:', {
+          keys: Object.keys(data),
+          dataCount: data.data?.length,
+          firstProduct: data.data?.[0]?.nome
+        });
+      })
+      .catch(err => console.error('❌ [DEBUG] API Error:', err));
   }, []); // Executar apenas uma vez no mount
 
   // 🔐 CAPTURAR TOKEN DO OAUTH CALLBACK

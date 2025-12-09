@@ -11,13 +11,14 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
-import { Storage } from '@google-cloud/storage';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getPrismaClient } from './backend/utils/prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import authRoutes, { authMiddleware, requireAdmin, optionalAuthMiddleware } from './backend/auth';
 import authOAuthRoutes from './backend/auth-oauth';
 import blogRoutes from './backend/blog';
 import blogAdminRoutes from './backend/admin/blog-admin';
+import blogInteractionsRoutes from './backend/blog-interactions';
 import aiChatRoutes from './backend/ai-chat';
 import { 
   generateTempPassword, 
@@ -130,10 +131,17 @@ app.set('trust proxy', true);
 // Environment
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Google Cloud Storage configuration
-const storage = new Storage();
-const bucketName = 'kzstore-images'; // Bucket com todas as imagens de produtos
-const bucket = storage.bucket(bucketName);
+// Cloudflare R2 Configuration
+const r2Client = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
+const bucketName = process.env.R2_BUCKET_NAME || 'kzstore-images';
+const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 
 // Criar pasta de uploads local para fallback (desenvolvimento)
 const uploadsDir = path.join(__dirname, 'public', 'uploads');
@@ -141,7 +149,7 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configurar multer para usar memória (upload para GCS)
+// Configurar multer para usar memória (upload para R2)
 const multerStorage = multer.memoryStorage();
 
 const upload = multer({
@@ -180,6 +188,11 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Permitir todos os deployments do Vercel
+    if (origin.includes('.vercel.app')) {
+      return callback(null, true);
+    }
+    
     // Verificar lista de origens permitidas
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -215,8 +228,8 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
-      connectSrc: ["'self'", "https://www.google-analytics.com", "https://region1.google-analytics.com", "https://storage.googleapis.com"],
-      frameSrc: ["'self'", "https://www.google.com"],
+      connectSrc: ["'self'", process.env.R2_PUBLIC_URL || ''],
+      frameSrc: ["'self'"],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: []
     }
@@ -292,6 +305,7 @@ app.use('/api/auth', authOAuthRoutes); // OAuth routes (Google, Facebook)
 // Rotas de Blog
 app.use('/api/blog', blogRoutes);
 app.use('/api/admin/blog', blogAdminRoutes);
+app.use('/api', blogInteractionsRoutes); // Likes, Comments, Shares, Analytics
 
 // Rotas de AI Chat
 app.use('/api/ai', aiChatRoutes);
@@ -342,33 +356,25 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
     const ext = path.extname(req.file.originalname);
     const filename = `product-${uniqueSuffix}${ext}`;
     
-    // Upload para Google Cloud Storage
-    const blob = bucket.file(filename);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
-      metadata: {
-        contentType: req.file.mimetype,
-      },
-    });
+    // Upload para Cloudflare R2
+    const uploadParams = {
+      Bucket: bucketName,
+      Key: filename,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
 
-    blobStream.on('error', (err) => {
-      console.error('❌ Erro no upload para GCS:', err);
-      res.status(500).json({ error: 'Erro ao fazer upload da imagem' });
+    await r2Client.send(new PutObjectCommand(uploadParams));
+    
+    // URL pública do arquivo no R2
+    const publicUrl = `${r2PublicUrl}/${filename}`;
+    console.log('✅ Imagem enviada para R2:', publicUrl);
+    
+    res.json({
+      success: true,
+      url: publicUrl,
+      filename: filename
     });
-
-    blobStream.on('finish', () => {
-      // URL pública do arquivo no GCS
-      const publicUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
-      console.log('✅ Imagem enviada para GCS:', publicUrl);
-      
-      res.json({
-        success: true,
-        url: publicUrl,
-        filename: filename
-      });
-    });
-
-    blobStream.end(req.file.buffer);
   } catch (error: any) {
     console.error('Error uploading image:', error);
     res.status(500).json({ error: error.message });
@@ -382,34 +388,27 @@ app.post('/api/upload-multiple', upload.array('images', 5), async (req, res) => 
       return res.status(400).json({ error: 'Nenhuma imagem enviada' });
     }
     
-    // Upload de cada arquivo para GCS
+    // Upload de cada arquivo para R2
     const uploadPromises = req.files.map(async (file) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const ext = path.extname(file.originalname);
       const filename = `product-${uniqueSuffix}${ext}`;
       
-      const blob = bucket.file(filename);
+      const uploadParams = {
+        Bucket: bucketName,
+        Key: filename,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
+
+      await r2Client.send(new PutObjectCommand(uploadParams));
+      const publicUrl = `${r2PublicUrl}/${filename}`;
       
-      return new Promise<{url: string, filename: string}>((resolve, reject) => {
-        const blobStream = blob.createWriteStream({
-          resumable: false,
-          metadata: {
-            contentType: file.mimetype,
-          },
-        });
-
-        blobStream.on('error', reject);
-        blobStream.on('finish', () => {
-          const publicUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
-          resolve({ url: publicUrl, filename });
-        });
-
-        blobStream.end(file.buffer);
-      });
+      return { url: publicUrl, filename };
     });
 
     const imageUrls = await Promise.all(uploadPromises);
-    console.log(`✅ ${req.files.length} imagens enviadas para GCS`);
+    console.log(`✅ ${req.files.length} imagens enviadas para R2`);
     
     res.json({
       success: true,
@@ -2587,51 +2586,42 @@ app.post('/api/tickets/:id/attachments', upload.single('file'), async (req, res)
       return res.status(404).json({ error: 'Ticket não encontrado' });
     }
 
-    // Upload para Google Cloud Storage
+    // Upload para Cloudflare R2
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(req.file.originalname);
     const filename = `ticket-${uniqueSuffix}${ext}`;
     
-    const blob = bucket.file(filename);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
-      metadata: {
-        contentType: req.file.mimetype,
-      },
+    const uploadParams = {
+      Bucket: bucketName,
+      Key: filename,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
+
+    await r2Client.send(new PutObjectCommand(uploadParams));
+    const fileUrl = `${r2PublicUrl}/${filename}`;
+    const attachment = {
+      id: Date.now().toString(),
+      name: req.file!.originalname,
+      url: fileUrl,
+      size: req.file!.size,
+      type: req.file!.mimetype,
+      uploaded_at: new Date().toISOString()
+    };
+
+    const attachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
+    attachments.push(attachment);
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id },
+      data: { attachments }
     });
 
-    blobStream.on('error', (err) => {
-      console.error('❌ Erro no upload para GCS:', err);
-      return res.status(500).json({ error: 'Erro ao fazer upload do arquivo' });
+    res.status(200).json({
+      message: 'Anexo adicionado com sucesso',
+      attachment,
+      ticket: updatedTicket
     });
-
-    blobStream.on('finish', async () => {
-      const fileUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
-      const attachment = {
-        id: Date.now().toString(),
-        name: req.file!.originalname,
-        url: fileUrl,
-        size: req.file!.size,
-        type: req.file!.mimetype,
-        uploaded_at: new Date().toISOString()
-      };
-
-      const attachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
-      attachments.push(attachment);
-
-      const updatedTicket = await prisma.ticket.update({
-        where: { id },
-        data: { attachments }
-      });
-
-      res.status(200).json({
-        message: 'Anexo adicionado com sucesso',
-        attachment,
-        ticket: updatedTicket
-      });
-    });
-
-    blobStream.end(req.file.buffer);
   } catch (error: any) {
     console.error('Erro ao adicionar anexo:', error);
     res.status(500).json({ error: error.message });
