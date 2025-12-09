@@ -3745,6 +3745,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Migration endpoint (temporário para debug)
 app.post('/api/admin/run-migration', requireAdmin, async (req, res) => {
   try {

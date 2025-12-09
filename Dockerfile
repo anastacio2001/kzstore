@@ -1,5 +1,5 @@
-# Production stage - Use Debian instead of Alpine for OpenSSL compatibility
-FROM node:20-slim
+# Production stage - Use Node 22 for Fly.io
+FROM node:22-slim
 
 WORKDIR /app
 
