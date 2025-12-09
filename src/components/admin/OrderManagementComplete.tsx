@@ -95,9 +95,9 @@ export function OrderManagementComplete({ accessToken }: OrderManagementComplete
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(order => 
         order.id.toLowerCase().includes(term) ||
-        order.customer_name.toLowerCase().includes(term) ||
-        order.customer_email.toLowerCase().includes(term) ||
-        order.customer_phone?.toLowerCase().includes(term)
+        (order.user_name || order.customer_name || '').toLowerCase().includes(term) ||
+        (order.user_email || order.customer_email || '').toLowerCase().includes(term) ||
+        (order.shipping_address?.phone || order.customer_phone || '').toLowerCase().includes(term)
       );
     }
 
@@ -199,9 +199,9 @@ export function OrderManagementComplete({ accessToken }: OrderManagementComplete
       ['ID', 'Cliente', 'Email', 'Telefone', 'Total', 'Status', 'Data'].join(','),
       ...filteredOrders.map(order => [
         order.id,
-        order.customer_name,
-        order.customer_email,
-        order.customer_phone || '',
+        order.user_name || order.customer_name,
+        order.user_email || order.customer_email,
+        order.shipping_address?.phone || order.customer_phone || '',
         order.total,
         order.status,
         order.created_at,
@@ -384,8 +384,8 @@ export function OrderManagementComplete({ accessToken }: OrderManagementComplete
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-medium">{order.customer_name}</p>
-                        <p className="text-sm text-gray-500">{order.customer_email}</p>
+                        <p className="font-medium">{order.user_name || order.customer_name}</p>
+                        <p className="text-sm text-gray-500">{order.user_email || order.customer_email}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -545,15 +545,15 @@ function OrderDetailModal({
                 Informações do Cliente
               </h3>
               <div className="space-y-2 text-sm">
-                <p><span className="text-gray-500">Nome:</span> <span className="font-medium">{order.customer_name}</span></p>
+                <p><span className="text-gray-500">Nome:</span> <span className="font-medium">{order.user_name || order.customer_name}</span></p>
                 <p className="flex items-center gap-2">
                   <Mail className="size-4 text-gray-400" />
-                  <span>{order.customer_email}</span>
+                  <span>{order.user_email || order.customer_email}</span>
                 </p>
-                {order.customer_phone && (
+                {(order.shipping_address?.phone || order.customer_phone) && (
                   <p className="flex items-center gap-2">
                     <Phone className="size-4 text-gray-400" />
-                    <span>{order.customer_phone}</span>
+                    <span>{order.shipping_address?.phone || order.customer_phone}</span>
                   </p>
                 )}
               </div>
