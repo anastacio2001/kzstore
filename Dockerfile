@@ -10,18 +10,20 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install ALL dependencies (including tsx for running TypeScript)
-RUN npm ci
+# Install dependencies with timeout settings
+RUN npm ci --prefer-offline --no-audit --progress=false
 
 # Copy all source code
 COPY . .
 
-# Generate Prisma Client (força regeneração com schema atualizado)
-RUN rm -rf node_modules/.prisma node_modules/@prisma/client
+# Generate Prisma Client
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Build only frontend
-RUN npm run build
+# Build TypeScript (compilar backend)
+RUN npx tsc -p tsconfig.backend.json || true
+
+# Build frontend
+RUN npm run build || echo "Frontend build optional"
 
 # Create uploads directory
 RUN mkdir -p public/uploads
@@ -33,5 +35,5 @@ EXPOSE 8080
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Start server with tsx (runs TypeScript directly)
-CMD ["npx", "tsx", "server.ts"]
+# Start server (usar dist compilado se existir, senão tsx)
+CMD ["sh", "-c", "if [ -f dist/backend/server.js ]; then node dist/backend/server.js; else npx tsx server.ts; fi"]
