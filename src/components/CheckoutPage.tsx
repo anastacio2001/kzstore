@@ -82,7 +82,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   // Safe calculation of cart total if not provided
   const safeCartTotal = cartTotal || cart.reduce((total, item) => 
     total + ((item.product?.preco_aoa || 0) * (item.quantity || 0)), 0
-  );
+  ) || 0;
 
   // Check if cart has flash sale products
   const hasFlashSaleProducts = cart.some(item => (item.product as any).is_flash_sale);
@@ -130,6 +130,8 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
       : appliedCoupon.discount_value
     : 0;
   
+  const safeDiscountAmount = Number(discountAmount) || 0;
+  
   // Verificar se todos produtos têm frete grátis
   const allProductsFreeShipping = cart.length > 0 && cart.every(item => {
     const shippingType = item.product?.shipping_type || 'dynamic';
@@ -149,9 +151,11 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                             hasFixedShipping ? shippingCost :
                             dynamicShippingCost;
   
-  console.log('🎯 [Frete] FINAL:', finalShippingCost);
+  const safeFinalShippingCost = Number(finalShippingCost) || 0;
   
-  const total = safeCartTotal + finalShippingCost - discountAmount;
+  console.log('🎯 [Frete] FINAL:', safeFinalShippingCost);
+  
+  const total = Number(safeCartTotal) + safeFinalShippingCost - safeDiscountAmount;
 
   // BUILD 131: Handle dynamic shipping calculation
   const handleShippingCalculated = (cost: number, days: number) => {
@@ -960,7 +964,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                       🎁 GRÁTIS
                     </span>
                   ) : (
-                    <span className="font-semibold">{finalShippingCost.toLocaleString('pt-AO')} AOA</span>
+                    <span className="font-semibold">{safeFinalShippingCost.toLocaleString('pt-AO')} AOA</span>
                   )}
                 </div>
                 
@@ -972,7 +976,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                       <span>Desconto ({appliedCoupon.code})</span>
                     </div>
                     <span className="font-semibold">
-                      - {discountAmount.toLocaleString('pt-AO')} AOA
+                      - {safeDiscountAmount.toLocaleString('pt-AO')} AOA
                     </span>
                   </div>
                 )}
