@@ -288,9 +288,10 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
                   window.open(shareLinks.facebook, '_blank', 'noopener,noreferrer');
                   setShowSharePopup(false);
                 }}
-                className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1877F2] text-white hover:bg-[#1864D9] transition-colors font-medium text-base"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1877F2] text-white hover:bg-[#1864D9] transition-colors"
               >
-                📘 Compartilhar no Facebook
+                <span className="text-2xl">📘</span>
+                <span className="font-medium flex-1 text-left">Compartilhar no Facebook</span>
               </button>
 
               <button
@@ -300,9 +301,10 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
                   window.open(shareLinks.twitter, '_blank', 'noopener,noreferrer');
                   setShowSharePopup(false);
                 }}
-                className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1DA1F2] text-white hover:bg-[#1A8CD8] transition-colors font-medium text-base"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#1DA1F2] text-white hover:bg-[#1A8CD8] transition-colors"
               >
-                🐦 Compartilhar no Twitter
+                <span className="text-2xl">🐦</span>
+                <span className="font-medium flex-1 text-left">Compartilhar no Twitter</span>
               </button>
 
               <button
@@ -312,9 +314,10 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
                   window.open(shareLinks.linkedin, '_blank', 'noopener,noreferrer');
                   setShowSharePopup(false);
                 }}
-                className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-[#0A66C2] text-white hover:bg-[#095196] transition-colors font-medium text-base"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#0A66C2] text-white hover:bg-[#095196] transition-colors"
               >
-                💼 Compartilhar no LinkedIn
+                <span className="text-2xl">💼</span>
+                <span className="font-medium flex-1 text-left">Compartilhar no LinkedIn</span>
               </button>
 
               <button
@@ -324,17 +327,19 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
                   window.open(shareLinks.whatsapp, '_blank', 'noopener,noreferrer');
                   setShowSharePopup(false);
                 }}
-                className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-[#25D366] text-white hover:bg-[#1FB855] transition-colors font-medium text-base"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-[#25D366] text-white hover:bg-[#1FB855] transition-colors"
               >
-                💬 Compartilhar no WhatsApp
+                <span className="text-2xl">💬</span>
+                <span className="font-medium flex-1 text-left">Compartilhar no WhatsApp</span>
               </button>
 
               <button
                 type="button"
                 onClick={copyLink}
-                className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors font-medium text-base"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               >
-                🔗 Copiar Link
+                <span className="text-2xl">🔗</span>
+                <span className="font-medium flex-1 text-left">Copiar Link</span>
               </button>
             </div>
           </div>
