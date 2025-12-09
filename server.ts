@@ -17,7 +17,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import authRoutes, { authMiddleware, requireAdmin, optionalAuthMiddleware } from './backend/auth';
 import authOAuthRoutes from './backend/auth-oauth';
 import blogRoutes from './backend/blog';
-import blogAdminRoutes from './backend/admin/blog-admin.js';
+import blogAdminRoutes from './backend/admin/blog-admin';
 import aiChatRoutes from './backend/ai-chat';
 import { 
   generateTempPassword, 
