@@ -287,8 +287,14 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
 
       {/* Share Popup */}
       {showSharePopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowSharePopup(false)}
+        >
+          <div 
+            className="bg-white rounded-lg max-w-md w-full p-6 relative shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowSharePopup(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -301,6 +307,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
 
             <div className="space-y-3">
               <button
+                type="button"
                 onClick={() => {
                   trackShare('facebook');
                   window.open(shareLinks.facebook, '_blank', 'noopener,noreferrer');
@@ -313,6 +320,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   trackShare('twitter');
                   window.open(shareLinks.twitter, '_blank', 'noopener,noreferrer');
@@ -325,6 +333,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   trackShare('linkedin');
                   window.open(shareLinks.linkedin, '_blank', 'noopener,noreferrer');
@@ -337,6 +346,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   trackShare('whatsapp');
                   window.open(shareLinks.whatsapp, '_blank', 'noopener,noreferrer');
@@ -349,6 +359,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
               </button>
 
               <button
+                type="button"
                 onClick={copyLink}
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
               >
