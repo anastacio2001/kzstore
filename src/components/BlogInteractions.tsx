@@ -118,7 +118,13 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
   };
 
   const currentUrl = postUrl || window.location.href;
-  const encodedUrl = encodeURIComponent(currentUrl);
+  
+  // Garantir que sempre temos o URL completo do artigo específico
+  const articleUrl = postUrl?.startsWith('http') 
+    ? postUrl 
+    : `${window.location.origin}${postUrl?.startsWith('/') ? postUrl : `/${postUrl}`}`;
+  
+  const encodedUrl = encodeURIComponent(articleUrl);
   const encodedTitle = encodeURIComponent(postTitle);
 
   const shareLinks = {
@@ -147,7 +153,7 @@ export function BlogInteractions({ postId, postTitle, postUrl }: BlogInteraction
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(currentUrl);
+    navigator.clipboard.writeText(articleUrl);
     trackShare('copy');
     alert('Link copiado para a área de transferência!');
     setShowSharePopup(false);

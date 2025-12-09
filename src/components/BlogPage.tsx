@@ -226,7 +226,7 @@ export function BlogPage({ onBack, onViewProduct, onNavigateToProduct }: BlogPag
                 <BlogInteractions 
                   postId={selectedPost.id}
                   postTitle={selectedPost.title}
-                  postUrl={window.location.href}
+                  postUrl={`${window.location.origin}/blog/${selectedPost.slug || selectedPost.id}`}
                 />
 
                 {selectedPost.tags && selectedPost.tags.length > 0 && (
