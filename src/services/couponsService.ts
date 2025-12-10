@@ -13,6 +13,12 @@ export interface Coupon {
   discount_value: number;
   minimum_order_value?: number;
   max_discount?: number;
+  
+  // Novos campos
+  category_id?: string | null;
+  first_purchase_only?: boolean;
+  user_specific?: string | null;
+  
   usage_limit?: number;
   used_count?: number;
   valid_from?: string;

@@ -20,10 +20,14 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
   // Form state
   const [formData, setFormData] = useState({
     code: '',
+    description: '',
     type: 'percentage' as 'percentage' | 'fixed',
     value: 10,
     minimum_order_value: 0,
     max_discount: 0,
+    category_id: '',
+    first_purchase_only: false,
+    user_specific: '',
     usage_limit: 0,
     valid_from: '',
     valid_until: '',
@@ -52,10 +56,14 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
 
     const couponData = {
       code: formData.code.toUpperCase(),
+      description: formData.description || null,
       discount_type: formData.type,
       discount_value: formData.value,
       minimum_order_value: formData.minimum_order_value || null,
       max_discount: formData.max_discount || null,
+      category_id: formData.category_id || null,
+      first_purchase_only: formData.first_purchase_only,
+      user_specific: formData.user_specific || null,
       usage_limit: formData.usage_limit || null,
       valid_from: new Date(formData.valid_from).toISOString(),
       valid_until: new Date(formData.valid_until).toISOString(),
@@ -105,10 +113,14 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
     // 🔥 CORRIGIDO: Hook retorna camelCase, aceitar ambos formatos
     setFormData({
       code: coupon.code || '',
+      description: coupon.description || '',
       type: coupon.discountType || coupon.type || coupon.discount_type || 'percentage',
       value: coupon.discountValue || coupon.value || coupon.discount_value || 0,
       minimum_order_value: coupon.minPurchase || coupon.minimum_order_value || 0,
       max_discount: coupon.maxDiscount || coupon.max_discount || 0,
+      category_id: coupon.category_id || '',
+      first_purchase_only: coupon.first_purchase_only || false,
+      user_specific: coupon.user_specific || '',
       usage_limit: coupon.usageLimit || coupon.usage_limit || 0,
       valid_from: formatDateForInput(coupon.startDate || coupon.valid_from || coupon.start_date),
       valid_until: formatDateForInput(coupon.endDate || coupon.valid_until || coupon.end_date),
@@ -140,10 +152,14 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
   const resetForm = () => {
     setFormData({
       code: '',
+      description: '',
       type: 'percentage',
       value: 10,
       minimum_order_value: 0,
       max_discount: 0,
+      category_id: '',
+      first_purchase_only: false,
+      user_specific: '',
       usage_limit: 0,
       valid_from: '',
       valid_until: '',
@@ -388,6 +404,17 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
                 <p className="text-xs text-gray-500 mt-1">Use apenas letras maiúsculas e números</p>
               </div>
 
+              <div>
+                <Label htmlFor="description">Descrição</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Descrição interna do cupom"
+                />
+                <p className="text-xs text-gray-500 mt-1">Apenas para referência interna</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="type">Tipo de Desconto *</Label>
@@ -417,7 +444,48 @@ export function CouponsManager({ accessToken }: CouponsManagerProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Novos campos de filtros */}
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-medium text-gray-700">Filtros e Restrições</h3>
+                
+                <div>
+                  <Label htmlFor="category">Categoria Específica</Label>
+                  <Input
+                    id="category"
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    placeholder="ID da categoria (opcional)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Deixe vazio para aplicar em todas as categorias</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="user">Usuário Específico (Email)</Label>
+                  <Input
+                    id="user"
+                    type="email"
+                    value={formData.user_specific}
+                    onChange={(e) => setFormData({ ...formData, user_specific: e.target.value })}
+                    placeholder="usuario@exemplo.com (opcional)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Cupom exclusivo para este email</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    id="first-purchase"
+                    type="checkbox"
+                    checked={formData.first_purchase_only}
+                    onChange={(e) => setFormData({ ...formData, first_purchase_only: e.target.checked })}
+                    className="size-4"
+                  />
+                  <Label htmlFor="first-purchase" className="cursor-pointer">
+                    Apenas para primeira compra
+                  </Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 border-t pt-4">
                 <div>
                   <Label htmlFor="min">Compra Mínima (AOA)</Label>
                   <Input
