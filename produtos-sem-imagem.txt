@@ -1,0 +1,193 @@
+📋 RELATÓRIO DE PRODUTOS SEM IMAGEM
+
+================================================================================
+Total de produtos sem imagem: 29
+
+Lista de produtos que precisam de upload de imagem:
+
+1. Adaptador Hub Splitter 1xhdmi (F) Para 4xhdmi (F) 4k@60hz
+   Categoria: accessories
+   Preço: 53242.42 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/e1e23110-e5db-4c38-a8a4-5c5c99ee0af4
+
+2. Adaptador Poe Splitter
+   Categoria: accessories
+   Preço: 14160.94 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/2f8f7cb3-fc2a-4d03-8289-87aa6fa6dc9d
+
+3. Adaptador Usb-C Para Hdmi + Vga Dual Display
+   Categoria: accessories
+   Preço: 25860.76 AOA
+   Estoque: 12 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/45595488-d67c-491e-9c42-f782a41ae1a0
+
+4. Conversor HDMI Para VGA Com Áudio 0.15m
+   Categoria: accessories
+   Preço: 10258.72 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/2585494f-6a85-4b2c-a4a3-b22af4b4aee9
+
+5. Disco Externo 2.5" 1TB USB3.0 Portátil
+   Categoria: storage
+   Preço: 96924.80 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/0f33ec31-f3f7-4169-9f4d-8add15c72e25
+
+6. Disco Externo 3.5" 4TB USB3.0 Portátil
+   Categoria: storage
+   Preço: 222416.00 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/dad88bdd-15bd-4d87-8fbf-57379e001ec2
+
+7. Disco Externo 3.5" 6TB ELEMENTS USB3.0
+   Categoria: storage
+   Preço: 246629.60 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/1b8b2939-a786-4750-86db-1a3205ff8c5b
+
+8. Disco Interno 2.5 960gb Ssd a400 Sataiii
+   Categoria: storage
+   Preço: 86388.92 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/c2f8b61f-1c12-4b98-a1d6-5f4c2ad88558
+
+9. Disco Interno 2.5'' 240GB SSD A400 SATAIII (7MM HEIGHT)
+   Categoria: storage
+   Preço: 41450.12 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/703174c2-4c92-4da6-8f88-ba5cf9155782
+
+10. Disco interno m.2 256gb ssd sataiii 430s
+   Categoria: storage
+   Preço: 61922.00 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/6996ba3b-b231-4a84-9300-fd3739984339
+
+11. Impressora Deskjet E-AIO 2876 Adv. (7.5) Wifi
+   Categoria: impressão
+   Preço: 62814.22 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/132c3500-09ba-4934-b156-f57645cf15ff
+
+12. Impressora Térmica Usb / Rs232
+   Categoria: impressora
+   Preço: 116003.20 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/9b3be6f1-d462-476a-8209-5d0ec84a8347
+
+13. Impressora zoemini para mini fotos
+   Categoria: impressão
+   Preço: 288279.00 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/fca7c090-0bd0-42c7-aedc-99e8d97e21d0
+
+14. Massa térmica 1.5g
+   Categoria: accessories
+   Preço: 1330.72 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/e3887256-a068-4f31-9ae3-b539b8c664d0
+
+15. Microfone Lapela + Phone KM-03
+   Categoria: accessories
+   Preço: 11584.54 AOA
+   Estoque: 12 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/494ca584-f5e8-42f5-8331-da2f2dab4e97
+
+16. Microfone Lapela Mini Jack K-03
+   Categoria: accessories
+   Preço: 7355.14 AOA
+   Estoque: 15 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/a89a162b-bcf7-4845-a787-3e6ef2feabc7
+
+17. Microfone de Voz SH SV200
+   Categoria: accessories
+   Preço: 64463.94 AOA
+   Estoque: 5 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/3916494f-b77b-49c0-b6a9-e67a5645ec37
+
+18. Pen Drive 32GB Venture Usb 2.0
+   Categoria: storage
+   Preço: 3923.42 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/0ced4ac7-6fba-45ee-8016-3f06fc46d72e
+
+19. RATO COM FIO USB OPTICAL PRETO
+   Categoria: accessories
+   Preço: 3507.32 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/35125d92-a3e0-4760-aeb5-26259f9f72c6
+
+20. Rato Com Fio USB Dx-120 Preto
+   Categoria: accessories
+   Preço: 4257.44 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/958dd879-cf05-4c01-93c3-3e6a57808462
+
+21. Rolo Etiquetas 34x18 Térmicas (C/ 1000)
+   Categoria: impressão
+   Preço: 1199.14 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/97d1845b-6c19-41e8-8f98-a25a389b57c9
+
+22. Rolo Térmico Para Multicaixas (Tpa) - 10 unidades 
+   Categoria: impressão
+   Preço: 2557.86 AOA
+   Estoque: 12 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/1adc475e-6549-4073-a4c6-06afcaa3bcaa
+
+23. Sinal PVC Com Furo (45x18 mm) PK/20
+   Categoria: impressão
+   Preço: 8859.00 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/b82a988d-ae92-47ad-9278-931771b37b7e
+
+24. Suporte de Alumínio Altura Ajustável 10'' a 15.6''
+   Categoria: accessories
+   Preço: 10660.00 AOA
+   Estoque: 6 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/a2a4ecaa-b14d-46ac-89b3-f7282077f85b
+
+25. Tapete Para Rato Com Apoio Azul
+   Categoria: accessories
+   Preço: 3977.32 AOA
+   Estoque: 11 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/76f08f7e-6cab-424d-8c43-688eb77fade1
+
+26. Tapete Para Rato G-PAD 230S
+   Categoria: accessories
+   Preço: 4413.94 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/326305cd-4131-4b8a-bb2d-60cdf3cff8ea
+
+27. Toolkit 17 Peças
+   Categoria: accessories
+   Preço: 30246.02 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/5754687f-859e-440c-b02b-0b79824e9db6
+
+28. Toolkit MI 24 Peças Precisas
+   Categoria: accessories
+   Preço: 31644.80 AOA
+   Estoque: 10 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/cc86ebaa-f0fe-4c9f-853c-618c3f9ee43f
+
+29. Webcam 300K USB-A Built-in Microfone Xpresscam300
+   Categoria: camera
+   Preço: 5745.60 AOA
+   Estoque: 9 unidades
+   Link admin: https://kzstore.ao/admin/products/edit/3cb3520d-48ce-4504-b22b-6c33aa3ca512
+
+================================================================================
+
+📝 Como fazer upload das imagens:
+
+1. Acesse: https://kzstore.ao/admin
+2. Vá em "Produtos" → "Gerenciar Produtos"
+3. Clique em "Editar" no produto
+4. Faça upload da imagem correta
+5. Clique em "Salvar"
+
+O sistema salvará automaticamente no Cloudflare R2! ✅
+

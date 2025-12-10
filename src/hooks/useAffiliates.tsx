@@ -1,42 +1,109 @@
 /**
- * Hook para gerenciar afiliados usando Supabase SDK
+ * Hook para gerenciar afiliados usando Backend PostgreSQL
  */
 
 import { useState, useCallback } from 'react';
-import { kvGet, kvSet, kvGetByPrefix } from '../utils/supabase/kv';
 
 export type Affiliate = {
   id: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  code: string;
-  commissionPercent: number;
-  totalSales: number;
-  totalCommission: number;
-  pendingCommission: number;
-  paidCommission: number;
+  user_id?: string | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  affiliate_code: string;
+  commission_rate: number;
+  total_clicks: number;
+  total_sales: number;
+  total_commission: number;
+  pending_commission: number;
+  paid_commission: number;
+  bank_name?: string | null;
+  account_holder?: string | null;
+  account_number?: string | null;
+  iban?: string | null;
   status: 'active' | 'suspended' | 'inactive';
-  createdAt: string;
-  updatedAt?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  _count?: {
+    clicks: number;
+    commissions: number;
+  };
 };
 
-const AFFILIATES_PREFIX = 'affiliate:';
-const AFFILIATES_LIST_KEY = 'affiliates:list';
+export type AffiliateClick = {
+  id: string;
+  affiliate_id: string;
+  product_id?: string | null;
+  product_name?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  referrer?: string | null;
+  converted: boolean;
+  order_id?: string | null;
+  created_at: string;
+  product?: {
+    nome: string;
+    imagem_url?: string | null;
+  };
+};
+
+export type AffiliateCommission = {
+  id: string;
+  affiliate_id: string;
+  order_id: string;
+  order_total: number;
+  commission_rate: number;
+  commission_amount: number;
+  status: 'pending' | 'approved' | 'paid' | 'cancelled';
+  paid_at?: string | null;
+  payment_method?: string | null;
+  payment_reference?: string | null;
+  payment_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  order?: {
+    order_number: string;
+    user_name: string;
+    created_at: string;
+  };
+};
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://kzstore-backend.fly.dev';
 
 export function useAffiliates() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getAuthToken = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const parsed = JSON.parse(user);
+      return parsed.token || parsed.accessToken;
+    }
+    return null;
+  };
+
   const fetchAffiliates = useCallback(async (): Promise<Affiliate[]> => {
     setLoading(true);
     setError(null);
     try {
-      const affiliatesData = await kvGetByPrefix<Affiliate>(AFFILIATES_PREFIX);
-      const affiliatesArray = affiliatesData.map(item => item.value);
-      setAffiliates(affiliatesArray);
-      return affiliatesArray;
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/api/affiliates`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar afiliados');
+      }
+
+      const data = await response.json();
+      setAffiliates(data.affiliates || []);
+      return data.affiliates || [];
     } catch (err) {
       console.error('[useAffiliates] Error fetching affiliates:', err);
       setError(String(err));
@@ -46,29 +113,36 @@ export function useAffiliates() {
     }
   }, []);
 
-  const createAffiliate = useCallback(async (affiliateData: Omit<Affiliate, 'id' | 'createdAt' | 'totalSales' | 'totalCommission' | 'pendingCommission' | 'paidCommission'>): Promise<Affiliate | null> => {
+  const createAffiliate = useCallback(async (affiliateData: {
+    name: string;
+    email: string;
+    phone?: string;
+    commission_rate: number;
+    bank_name?: string;
+    account_holder?: string;
+    account_number?: string;
+    iban?: string;
+  }): Promise<Affiliate | null> => {
     setLoading(true);
     setError(null);
     try {
-      const id = `affiliate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newAffiliate: Affiliate = {
-        ...affiliateData,
-        id,
-        totalSales: 0,
-        totalCommission: 0,
-        pendingCommission: 0,
-        paidCommission: 0,
-        createdAt: new Date().toISOString()
-      };
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/api/affiliates`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(affiliateData),
+      });
 
-      await kvSet(`${AFFILIATES_PREFIX}${id}`, newAffiliate);
+      if (!response.ok) {
+        throw new Error('Erro ao criar afiliado');
+      }
 
-      const affiliateIds = await kvGet<string[]>(AFFILIATES_LIST_KEY) || [];
-      affiliateIds.push(id);
-      await kvSet(AFFILIATES_LIST_KEY, affiliateIds);
-
+      const data = await response.json();
       await fetchAffiliates();
-      return newAffiliate;
+      return data.affiliate;
     } catch (err) {
       console.error('[useAffiliates] Error creating affiliate:', err);
       setError(String(err));
@@ -78,47 +152,156 @@ export function useAffiliates() {
     }
   }, [fetchAffiliates]);
 
-  const recordSale = useCallback(async (affiliateId: string, saleAmount: number): Promise<boolean> => {
+  const updateAffiliate = useCallback(async (
+    id: string,
+    updates: Partial<Omit<Affiliate, 'id' | 'created_at' | 'updated_at' | '_count'>>
+  ): Promise<Affiliate | null> => {
+    setLoading(true);
+    setError(null);
     try {
-      const affiliate = await kvGet<Affiliate>(`${AFFILIATES_PREFIX}${affiliateId}`);
-      if (!affiliate) return false;
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/api/affiliates/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
 
-      const commission = (saleAmount * affiliate.commissionPercent) / 100;
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar afiliado');
+      }
 
-      const updated: Affiliate = {
-        ...affiliate,
-        totalSales: affiliate.totalSales + saleAmount,
-        totalCommission: affiliate.totalCommission + commission,
-        pendingCommission: affiliate.pendingCommission + commission,
-        updatedAt: new Date().toISOString()
-      };
-      await kvSet(`${AFFILIATES_PREFIX}${affiliateId}`, updated);
-      return true;
+      const data = await response.json();
+      await fetchAffiliates();
+      return data.affiliate;
     } catch (err) {
-      console.error('[useAffiliates] Error recording sale:', err);
-      return false;
+      console.error('[useAffiliates] Error updating affiliate:', err);
+      setError(String(err));
+      return null;
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [fetchAffiliates]);
 
-  const payCommission = useCallback(async (affiliateId: string, amount: number): Promise<boolean> => {
+  const deleteAffiliate = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
     try {
-      const affiliate = await kvGet<Affiliate>(`${AFFILIATES_PREFIX}${affiliateId}`);
-      if (!affiliate) return false;
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/api/affiliates/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-      const updated: Affiliate = {
-        ...affiliate,
-        pendingCommission: affiliate.pendingCommission - amount,
-        paidCommission: affiliate.paidCommission + amount,
-        updatedAt: new Date().toISOString()
-      };
-      await kvSet(`${AFFILIATES_PREFIX}${affiliateId}`, updated);
+      if (!response.ok) {
+        throw new Error('Erro ao deletar afiliado');
+      }
+
       await fetchAffiliates();
       return true;
     } catch (err) {
-      console.error('[useAffiliates] Error paying commission:', err);
+      console.error('[useAffiliates] Error deleting affiliate:', err);
+      setError(String(err));
       return false;
+    } finally {
+      setLoading(false);
     }
   }, [fetchAffiliates]);
+
+  const payCommission = useCallback(async (
+    commissionId: string,
+    paymentData: {
+      payment_method: string;
+      payment_reference?: string;
+      payment_notes?: string;
+    }
+  ): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/api/affiliates/commissions/${commissionId}/pay`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao pagar comissão');
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[useAffiliates] Error paying commission:', err);
+      setError(String(err));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getAffiliateCommissions = useCallback(async (
+    affiliateId: string,
+    status?: string
+  ): Promise<AffiliateCommission[]> => {
+    try {
+      const token = getAuthToken();
+      const url = status 
+        ? `${API_URL}/api/affiliates/${affiliateId}/commissions?status=${status}`
+        : `${API_URL}/api/affiliates/${affiliateId}/commissions`;
+        
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar comissões');
+      }
+
+      const data = await response.json();
+      return data.commissions || [];
+    } catch (err) {
+      console.error('[useAffiliates] Error fetching commissions:', err);
+      return [];
+    }
+  }, []);
+
+  const getAffiliateClicks = useCallback(async (
+    affiliateId: string,
+    converted?: boolean
+  ): Promise<AffiliateClick[]> => {
+    try {
+      const token = getAuthToken();
+      const url = converted !== undefined
+        ? `${API_URL}/api/affiliates/${affiliateId}/clicks?converted=${converted}`
+        : `${API_URL}/api/affiliates/${affiliateId}/clicks`;
+        
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar cliques');
+      }
+
+      const data = await response.json();
+      return data.clicks || [];
+    } catch (err) {
+      console.error('[useAffiliates] Error fetching clicks:', err);
+      return [];
+    }
+  }, []);
 
   return {
     affiliates,
@@ -126,7 +309,10 @@ export function useAffiliates() {
     error,
     fetchAffiliates,
     createAffiliate,
-    recordSale,
-    payCommission
+    updateAffiliate,
+    deleteAffiliate,
+    payCommission,
+    getAffiliateCommissions,
+    getAffiliateClicks,
   };
 }

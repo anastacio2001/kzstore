@@ -424,6 +424,47 @@ app.post('/api/upload-multiple', upload.array('images', 5), async (req, res) => 
 // PLACEHOLDER IMAGE ROUTE
 // ============================================
 
+// GET /api/image-proxy/:filename - Proxy de imagens com fallback para placeholder
+app.get('/api/image-proxy/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const r2PublicUrl = process.env.R2_PUBLIC_URL;
+    
+    if (!r2PublicUrl) {
+      console.warn('⚠️ R2_PUBLIC_URL não configurado');
+      return res.redirect('https://via.placeholder.com/400x400/E31E24/FFFFFF?text=KZSTORE');
+    }
+
+    const imageUrl = `${r2PublicUrl}/${filename}`;
+    
+    try {
+      // Tentar buscar imagem do R2
+      const response = await fetch(imageUrl);
+      
+      if (!response.ok) {
+        console.warn(`⚠️ Imagem não encontrada no R2: ${filename}`);
+        return res.redirect('https://via.placeholder.com/400x400/E31E24/FFFFFF?text=KZSTORE');
+      }
+
+      // Retornar imagem com cache headers
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 horas
+
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+      
+    } catch (error) {
+      console.error('Erro ao buscar imagem do R2:', error);
+      res.redirect('https://via.placeholder.com/400x400/E31E24/FFFFFF?text=KZSTORE');
+    }
+    
+  } catch (error) {
+    console.error('Erro no proxy de imagem:', error);
+    res.redirect('https://via.placeholder.com/400x400/E31E24/FFFFFF?text=KZSTORE');
+  }
+});
+
 // ============================================
 // PRODUCTS ROUTES
 // ============================================
@@ -443,6 +484,7 @@ app.get('/api/products', cacheMiddleware(300), paginationMiddleware, async (req,
       where.is_pre_order = false;
     } else {
       // Se não especificado, EXCLUIR pré-vendas do catálogo normal
+      // Pré-vendas aparecem SOMENTE na seção de pré-vendas
       where.is_pre_order = false;
     }
 
@@ -1593,6 +1635,438 @@ app.delete('/api/coupons/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting coupon:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// AFFILIATES ROUTES (Sistema de Afiliados)
+// ============================================
+
+// GET /api/affiliates - Buscar todos os afiliados
+app.get('/api/affiliates', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const affiliates = await prisma.affiliate.findMany({
+      orderBy: { created_at: 'desc' },
+      include: {
+        _count: {
+          select: {
+            clicks: true,
+            commissions: true,
+          },
+        },
+      },
+    });
+    res.json({ affiliates });
+  } catch (error: any) {
+    console.error('Error fetching affiliates:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/affiliates/stats - Estatísticas gerais de afiliados
+app.get('/api/affiliates/stats', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const totalAffiliates = await prisma.affiliate.count();
+    const activeAffiliates = await prisma.affiliate.count({
+      where: { status: 'active' },
+    });
+    
+    const aggregates = await prisma.affiliate.aggregate({
+      _sum: {
+        total_sales: true,
+        total_commission: true,
+        pending_commission: true,
+        paid_commission: true,
+        total_clicks: true,
+      },
+    });
+
+    res.json({
+      total: totalAffiliates,
+      active: activeAffiliates,
+      totalSales: aggregates._sum.total_sales || 0,
+      totalCommission: aggregates._sum.total_commission || 0,
+      pendingCommission: aggregates._sum.pending_commission || 0,
+      paidCommission: aggregates._sum.paid_commission || 0,
+      totalClicks: aggregates._sum.total_clicks || 0,
+    });
+  } catch (error: any) {
+    console.error('Error fetching affiliate stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/affiliates/code/:code - Buscar afiliado por código
+app.get('/api/affiliates/code/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { affiliate_code: code },
+    });
+    
+    if (!affiliate) {
+      return res.status(404).json({ error: 'Afiliado não encontrado' });
+    }
+    
+    res.json({ affiliate });
+  } catch (error: any) {
+    console.error('Error fetching affiliate by code:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/affiliates/:id - Buscar afiliado por ID
+app.get('/api/affiliates/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { id },
+      include: {
+        clicks: {
+          orderBy: { created_at: 'desc' },
+          take: 50,
+        },
+        commissions: {
+          orderBy: { created_at: 'desc' },
+          take: 50,
+        },
+      },
+    });
+    
+    if (!affiliate) {
+      return res.status(404).json({ error: 'Afiliado não encontrado' });
+    }
+    
+    res.json({ affiliate });
+  } catch (error: any) {
+    console.error('Error fetching affiliate:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/affiliates - Criar novo afiliado
+app.post('/api/affiliates', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      commission_rate,
+      bank_name,
+      account_holder,
+      account_number,
+      iban,
+    } = req.body;
+
+    // Gerar código único de afiliado
+    const codeBase = name.substring(0, 3).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Verificar se código já existe
+    let affiliate_code = codeBase;
+    let counter = 1;
+    while (await prisma.affiliate.findUnique({ where: { affiliate_code } })) {
+      affiliate_code = `${codeBase}${counter}`;
+      counter++;
+    }
+
+    const affiliate = await prisma.affiliate.create({
+      data: {
+        name,
+        email,
+        phone,
+        affiliate_code,
+        commission_rate: parseFloat(commission_rate),
+        bank_name,
+        account_holder,
+        account_number,
+        iban,
+        status: 'active',
+        is_active: true,
+      },
+    });
+
+    res.status(201).json({ affiliate });
+  } catch (error: any) {
+    console.error('Error creating affiliate:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/affiliates/:id - Atualizar afiliado
+app.put('/api/affiliates/:id', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      commission_rate,
+      bank_name,
+      account_holder,
+      account_number,
+      iban,
+      status,
+      is_active,
+    } = req.body;
+
+    const affiliate = await prisma.affiliate.update({
+      where: { id },
+      data: {
+        name,
+        email,
+        phone,
+        commission_rate: commission_rate ? parseFloat(commission_rate) : undefined,
+        bank_name,
+        account_holder,
+        account_number,
+        iban,
+        status,
+        is_active,
+      },
+    });
+
+    res.json({ affiliate });
+  } catch (error: any) {
+    console.error('Error updating affiliate:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/affiliates/:id - Deletar afiliado
+app.delete('/api/affiliates/:id', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.affiliate.delete({
+      where: { id },
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting affiliate:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/affiliates/track-click - Registrar clique de afiliado (público)
+app.post('/api/affiliates/track-click', async (req, res) => {
+  try {
+    const { affiliate_code, product_id, product_name } = req.body;
+    
+    // Buscar afiliado
+    const affiliate = await prisma.affiliate.findUnique({
+      where: { affiliate_code },
+    });
+    
+    if (!affiliate || !affiliate.is_active) {
+      return res.status(404).json({ error: 'Afiliado não encontrado ou inativo' });
+    }
+
+    // Registrar clique
+    const click = await prisma.affiliateClick.create({
+      data: {
+        affiliate_id: affiliate.id,
+        product_id,
+        product_name,
+        ip_address: req.ip || req.headers['x-forwarded-for'] as string,
+        user_agent: req.headers['user-agent'],
+        referrer: req.headers['referer'],
+      },
+    });
+
+    // Atualizar contador de cliques
+    await prisma.affiliate.update({
+      where: { id: affiliate.id },
+      data: {
+        total_clicks: {
+          increment: 1,
+        },
+      },
+    });
+
+    res.json({ success: true, click_id: click.id });
+  } catch (error: any) {
+    console.error('Error tracking affiliate click:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/affiliates/convert-sale - Registrar conversão de venda
+app.post('/api/affiliates/convert-sale', authMiddleware, async (req: any, res) => {
+  try {
+    const { click_id, order_id } = req.body;
+
+    // Buscar o clique
+    const click = await prisma.affiliateClick.findUnique({
+      where: { id: click_id },
+      include: { affiliate: true },
+    });
+
+    if (!click) {
+      return res.status(404).json({ error: 'Clique não encontrado' });
+    }
+
+    // Buscar o pedido
+    const order = await prisma.order.findUnique({
+      where: { id: order_id },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
+    // Marcar clique como convertido
+    await prisma.affiliateClick.update({
+      where: { id: click_id },
+      data: {
+        converted: true,
+        order_id,
+      },
+    });
+
+    // Calcular comissão
+    const commission_amount = (Number(order.total) * Number(click.affiliate.commission_rate)) / 100;
+
+    // Criar registro de comissão
+    const commission = await prisma.affiliateCommission.create({
+      data: {
+        affiliate_id: click.affiliate.id,
+        order_id,
+        order_total: order.total,
+        commission_rate: click.affiliate.commission_rate,
+        commission_amount,
+        status: 'pending',
+      },
+    });
+
+    // Atualizar estatísticas do afiliado
+    await prisma.affiliate.update({
+      where: { id: click.affiliate.id },
+      data: {
+        total_sales: {
+          increment: Number(order.total),
+        },
+        total_commission: {
+          increment: commission_amount,
+        },
+        pending_commission: {
+          increment: commission_amount,
+        },
+      },
+    });
+
+    res.json({ success: true, commission });
+  } catch (error: any) {
+    console.error('Error converting sale:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/affiliates/commissions/:id/pay - Marcar comissão como paga
+app.put('/api/affiliates/commissions/:id/pay', authMiddleware, requireAdmin, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { payment_method, payment_reference, payment_notes } = req.body;
+
+    const commission = await prisma.affiliateCommission.findUnique({
+      where: { id },
+    });
+
+    if (!commission) {
+      return res.status(404).json({ error: 'Comissão não encontrada' });
+    }
+
+    // Atualizar comissão
+    const updatedCommission = await prisma.affiliateCommission.update({
+      where: { id },
+      data: {
+        status: 'paid',
+        paid_at: new Date(),
+        payment_method,
+        payment_reference,
+        payment_notes,
+      },
+    });
+
+    // Atualizar estatísticas do afiliado
+    await prisma.affiliate.update({
+      where: { id: commission.affiliate_id },
+      data: {
+        pending_commission: {
+          decrement: Number(commission.commission_amount),
+        },
+        paid_commission: {
+          increment: Number(commission.commission_amount),
+        },
+      },
+    });
+
+    res.json({ commission: updatedCommission });
+  } catch (error: any) {
+    console.error('Error paying commission:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/affiliates/:id/commissions - Buscar comissões de um afiliado
+app.get('/api/affiliates/:id/commissions', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+
+    const where: any = { affiliate_id: id };
+    if (status) {
+      where.status = status;
+    }
+
+    const commissions = await prisma.affiliateCommission.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      include: {
+        order: {
+          select: {
+            order_number: true,
+            user_name: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+
+    res.json({ commissions });
+  } catch (error: any) {
+    console.error('Error fetching commissions:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/affiliates/:id/clicks - Buscar cliques de um afiliado
+app.get('/api/affiliates/:id/clicks', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { converted } = req.query;
+
+    const where: any = { affiliate_id: id };
+    if (converted !== undefined) {
+      where.converted = converted === 'true';
+    }
+
+    const clicks = await prisma.affiliateClick.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 100,
+      include: {
+        product: {
+          select: {
+            nome: true,
+            imagem_url: true,
+          },
+        },
+      },
+    });
+
+    res.json({ clicks });
+  } catch (error: any) {
+    console.error('Error fetching clicks:', error);
     res.status(500).json({ error: error.message });
   }
 });
