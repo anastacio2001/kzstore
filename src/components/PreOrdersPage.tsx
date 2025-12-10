@@ -37,14 +37,19 @@ export function PreOrdersPage({ onBack, onViewProduct, onNavigateToProduct }: Pr
 
   const fetchPreOrderProducts = async () => {
     try {
-      const response = await fetch('/api/products?pre_order=true');
+      setLoading(true);
+      const response = await fetch('https://kzstore-backend.fly.dev/api/products?pre_order=true&limit=100');
 
       if (response.ok) {
         const data = await response.json();
-        setProducts(data.products || []);
+        console.log('📦 [PRE-ORDERS] Loaded products:', data);
+        // Backend retorna data.data (não data.products)
+        setProducts(data.data || []);
+      } else {
+        console.error('❌ [PRE-ORDERS] Error response:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('❌ [PRE-ORDERS] Error fetching products:', error);
     } finally {
       setLoading(false);
     }
