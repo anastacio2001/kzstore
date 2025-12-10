@@ -441,6 +441,9 @@ app.get('/api/products', cacheMiddleware(300), paginationMiddleware, async (req,
       where.is_pre_order = true;
     } else if (pre_order === 'false') {
       where.is_pre_order = false;
+    } else {
+      // Se não especificado, EXCLUIR pré-vendas do catálogo normal
+      where.is_pre_order = false;
     }
 
     // Filtrar por categoria
@@ -1713,8 +1716,10 @@ app.delete('/api/customers/:id', requireAdmin, async (req, res) => {
 // GET /api/flash-sales - Buscar flash sales ativas
 app.get('/api/flash-sales', async (req, res) => {
   try {
+    const { product_id } = req.query;
     const now = new Date();
     console.log('🔍 [GET /api/flash-sales] Current time:', now);
+    console.log('🔍 [GET /api/flash-sales] Filter by product_id:', product_id);
     
     // Primeiro busca TODOS os flash sales para debug
     const allFlashSales = await prisma.flashSale.findMany({
@@ -1727,13 +1732,21 @@ app.get('/api/flash-sales', async (req, res) => {
       console.log(`  - ID: ${sale.id}, is_active: ${sale.is_active}, start: ${sale.start_date}, end: ${sale.end_date}`);
     });
     
+    // Montar where clause
+    const where: any = {
+      is_active: true,
+      start_date: { lte: now },
+      end_date: { gte: now },
+    };
+    
+    // Filtrar por produto específico se fornecido
+    if (product_id) {
+      where.product_id = product_id as string;
+    }
+    
     // Agora busca os ativos no período
     const flashSales = await prisma.flashSale.findMany({
-      where: {
-        is_active: true,
-        start_date: { lte: now },
-        end_date: { gte: now },
-      },
+      where,
       include: {
         product: true,
       },
