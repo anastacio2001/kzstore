@@ -9,6 +9,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toast } from './components/Toast';
 import { DataMigration } from './components/DataMigration'; // 🔥 NOVO: Limpeza de dados antigos
 import { ClearDataButton } from './components/ClearDataButton'; // 🔥 DEBUG: Botão de limpeza manual
+import { PWAInstallPrompt } from './components/PWAInstallPrompt'; // 🔥 PWA: Prompt de instalação
+import { PWAUpdateNotifier } from './components/PWAUpdateNotifier'; // 🔥 PWA: Notificador de updates
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { AIChatbot } from './components/AIChatbot';
@@ -1060,6 +1062,10 @@ export default function App() {
         {currentPage !== 'admin' && currentPage !== 'login' && (
           <AIChatbot />
         )}
+
+        {/* PWA Components */}
+        <PWAInstallPrompt />
+        <PWAUpdateNotifier />
       </div>
     </ErrorBoundary>
   );

@@ -2,11 +2,15 @@
   "name": "KZSTORE - Loja Online de Eletrônicos",
   "short_name": "KZSTORE",
   "description": "A maior loja online de produtos eletrônicos em Angola",
-  "start_url": "/",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#E31E24",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "lang": "pt-AO",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/uploads/icon-72x72.png",
@@ -72,25 +76,55 @@
   "categories": ["shopping", "electronics"],
   "shortcuts": [
     {
-      "name": "Produtos",
-      "short_name": "Produtos",
-      "description": "Ver todos os produtos",
-      "url": "/#products",
-      "icons": [{ "src": "/uploads/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Produtos em Destaque",
+      "short_name": "Destaques",
+      "description": "Ver produtos em promoção",
+      "url": "/promocoes",
+      "icons": [{ "src": "/uploads/icon-96x96.png", "sizes": "96x96" }]
     },
     {
-      "name": "Carrinho",
-      "short_name": "Carrinho",
-      "description": "Ver carrinho de compras",
-      "url": "/#cart",
-      "icons": [{ "src": "/uploads/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Pré-Vendas",
+      "short_name": "Pré-Vendas",
+      "description": "Produtos em pré-venda",
+      "url": "/pre-vendas",
+      "icons": [{ "src": "/uploads/icon-96x96.png", "sizes": "96x96" }]
     },
     {
       "name": "Meus Pedidos",
       "short_name": "Pedidos",
       "description": "Acompanhar meus pedidos",
-      "url": "/#my-orders",
-      "icons": [{ "src": "/uploads/icon-192x192.png", "sizes": "192x192" }]
+      "url": "/meus-pedidos",
+      "icons": [{ "src": "/uploads/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Carrinho",
+      "short_name": "Carrinho",
+      "description": "Ver carrinho de compras",
+      "url": "/carrinho",
+      "icons": [{ "src": "/uploads/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Suporte",
+      "short_name": "Ajuda",
+      "description": "Falar com suporte",
+      "url": "/suporte",
+      "icons": [{ "src": "/uploads/icon-96x96.png", "sizes": "96x96" }]
     }
-  ]
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+kzstore",
+      "url": "/product?id=%s"
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
