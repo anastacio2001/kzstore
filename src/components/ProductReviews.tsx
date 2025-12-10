@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Star, ThumbsUp, Shield, User, MessageSquare } from 'lucide-react';
+import { Star, ThumbsUp, Shield, User, MessageSquare, Upload, X, Image as ImageIcon, Video } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
+import { uploadImage } from '../utils/supabase/storage';
 // supabase keys removed; backend endpoints used instead
 
 type Review = {
@@ -36,6 +37,9 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [reviewVideos, setReviewVideos] = useState<string[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   useEffect(() => {
     loadReviews();
@@ -100,7 +104,9 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
         rating,
         comment,
         user_name: userName,
-        user_email: userEmail
+        user_email: userEmail,
+        images: reviewImages,
+        videos: reviewVideos
       };
 
       console.log('📤 [REVIEWS] Request body:', JSON.stringify(requestBody, null, 2));
@@ -126,6 +132,8 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
         toast.success('Avaliação enviada com sucesso! Será publicada após moderação.');
         setRating(0);
         setComment('');
+        setReviewImages([]);
+        setReviewVideos([]);
         setShowForm(false);
         // Reload reviews
         loadReviews();
@@ -140,6 +148,83 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
       setSubmitting(false);
       console.log('🏁 [REVIEWS] Processo finalizado');
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Limitar a 5 imagens
+    if (reviewImages.length + files.length > 5) {
+      toast.error('Máximo de 5 imagens permitidas');
+      return;
+    }
+
+    setUploadingMedia(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Validar tipo de arquivo
+        if (!file.type.startsWith('image/')) {
+          console.error('Arquivo não é uma imagem:', file.name);
+          continue;
+        }
+
+        // Validar tamanho (máximo 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} é muito grande (máx. 5MB)`);
+          continue;
+        }
+
+        // Upload para Supabase
+        const url = await uploadImage(file);
+        if (url) {
+          uploadedUrls.push(url);
+        }
+      }
+
+      setReviewImages(prev => [...prev, ...uploadedUrls]);
+      if (uploadedUrls.length > 0) {
+        toast.success(`${uploadedUrls.length} imagem(ns) adicionada(s)`);
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error);
+      toast.error('Erro ao fazer upload das imagens');
+    } finally {
+      setUploadingMedia(false);
+      // Limpar input
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoUrlAdd = () => {
+    const url = prompt('Cole o link do vídeo do YouTube:');
+    if (!url) return;
+
+    // Validar URL do YouTube
+    if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+      toast.error('Por favor, use um link do YouTube');
+      return;
+    }
+
+    if (reviewVideos.length >= 2) {
+      toast.error('Máximo de 2 vídeos permitidos');
+      return;
+    }
+
+    setReviewVideos(prev => [...prev, url]);
+    toast.success('Vídeo adicionado');
+  };
+
+  const removeImage = (index: number) => {
+    setReviewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeVideo = (index: number) => {
+    setReviewVideos(prev => prev.filter((_, i) => i !== index));
   };
 
   const renderStars = (count: number, interactive = false, onHover?: (index: number) => void, onClick?: (index: number) => void) => {
@@ -268,10 +353,107 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
               />
             </div>
 
+            {/* Upload de Imagens */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fotos do Produto (opcional)
+              </label>
+              
+              <div className="space-y-3">
+                {/* Upload Button */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#E31E24] transition-colors">
+                  <input
+                    type="file"
+                    id="review-images"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingMedia || reviewImages.length >= 5}
+                  />
+                  <label
+                    htmlFor="review-images"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <Upload className="size-8 text-gray-400 mb-2" />
+                    <p className="text-sm font-medium text-gray-700">
+                      {uploadingMedia ? 'Enviando...' : 'Adicionar Fotos'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Máximo 5 imagens (JPG, PNG - até 5MB cada)
+                    </p>
+                  </label>
+                </div>
+
+                {/* Preview das Imagens */}
+                {reviewImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {reviewImages.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Vídeos do YouTube */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Vídeos (opcional)
+              </label>
+              
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleVideoUrlAdd}
+                  disabled={reviewVideos.length >= 2}
+                  className="w-full"
+                >
+                  <Video className="size-4 mr-2" />
+                  Adicionar Link do YouTube (máx. 2)
+                </Button>
+
+                {/* Lista de Vídeos */}
+                {reviewVideos.length > 0 && (
+                  <div className="space-y-2">
+                    {reviewVideos.map((url, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                        <Video className="size-4 text-gray-500 flex-shrink-0" />
+                        <span className="text-sm text-gray-700 truncate flex-1">
+                          {url}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeVideo(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <Button
                 onClick={handleSubmitReview}
-                disabled={submitting || rating === 0}
+                disabled={submitting || rating === 0 || uploadingMedia}
                 className="bg-[#E31E24] hover:bg-[#C41E1E]"
               >
                 {submitting ? 'Enviando...' : 'Publicar Avaliação'}
@@ -281,6 +463,8 @@ export function ProductReviews({ productId, userEmail, userName, accessToken }: 
                   setShowForm(false);
                   setRating(0);
                   setComment('');
+                  setReviewImages([]);
+                  setReviewVideos([]);
                 }}
                 variant="outline"
               >
