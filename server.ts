@@ -1418,7 +1418,7 @@ app.post('/api/reviews', authMiddleware, async (req: any, res) => {
       });
     }
     
-    // Criar review apenas com campos válidos
+    // Criar review com campos de mídia
     const reviewData: any = {
       product_id: req.body.product_id,
       user_name: req.body.user_name,
@@ -1428,6 +1428,16 @@ app.post('/api/reviews', authMiddleware, async (req: any, res) => {
       status: 'approved', // 🔥 AUTO-APROVAR para aparecer imediatamente
       is_approved: true,
     };
+    
+    // Adicionar imagens se fornecidas
+    if (req.body.images && Array.isArray(req.body.images) && req.body.images.length > 0) {
+      reviewData.images = req.body.images;
+    }
+    
+    // Adicionar vídeos se fornecidos
+    if (req.body.videos && Array.isArray(req.body.videos) && req.body.videos.length > 0) {
+      reviewData.videos = req.body.videos;
+    }
     
     // Sempre associar o review ao usuário autenticado
     if (req.userId) {
@@ -1440,7 +1450,12 @@ app.post('/api/reviews', authMiddleware, async (req: any, res) => {
       data: reviewData,
     });
     console.log('✅ [REVIEWS] Review created successfully:', review.id);
-    res.status(201).json({ review, message: 'Review submitted successfully. Pending approval.' });
+    res.status(201).json({ 
+      review, 
+      message: req.body.images?.length > 0 
+        ? `Review com ${req.body.images.length} imagem(ns) enviado com sucesso!`
+        : 'Review submitted successfully. Pending approval.' 
+    });
   } catch (error: any) {
     console.error('❌ [REVIEWS] Error creating review:', error);
     console.error('❌ [REVIEWS] Error details:', JSON.stringify(error, null, 2));
@@ -1491,6 +1506,75 @@ app.delete('/api/reviews/:id', authMiddleware, async (req: any, res) => {
     res.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting review:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/reviews/:id/helpful - Marcar review como útil
+app.post('/api/reviews/:id/helpful', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { helpful } = req.body; // true = helpful, false = not helpful
+
+    const review = await prisma.review.findUnique({ where: { id } });
+    if (!review) {
+      return res.status(404).json({ error: 'Review não encontrado' });
+    }
+
+    // Atualizar contadores
+    const updated = await prisma.review.update({
+      where: { id },
+      data: {
+        helpful_count: helpful 
+          ? { increment: 1 }
+          : undefined,
+        not_helpful_count: !helpful 
+          ? { increment: 1 }
+          : undefined,
+      },
+    });
+
+    res.json({ 
+      success: true, 
+      helpful_count: updated.helpful_count,
+      not_helpful_count: updated.not_helpful_count,
+    });
+  } catch (error: any) {
+    console.error('Error updating helpful count:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/reviews/upload-images - Upload de imagens para review
+app.post('/api/reviews/upload-images', authMiddleware, async (req: any, res) => {
+  try {
+    const { images } = req.body; // Array de URLs das imagens (já hospedadas em R2 ou outro CDN)
+    
+    if (!Array.isArray(images)) {
+      return res.status(400).json({ error: 'Images deve ser um array de URLs' });
+    }
+
+    // Validar URLs
+    const validUrls = images.filter(url => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
+    if (validUrls.length === 0) {
+      return res.status(400).json({ error: 'Nenhuma URL válida fornecida' });
+    }
+
+    res.json({ 
+      success: true, 
+      uploaded_images: validUrls,
+      message: `${validUrls.length} imagens validadas com sucesso`
+    });
+  } catch (error: any) {
+    console.error('Error uploading review images:', error);
     res.status(500).json({ error: error.message });
   }
 });
