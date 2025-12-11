@@ -45,7 +45,7 @@ import { MyLoyaltyPage } from './components/MyLoyaltyPage';
 import MyQuotesPage from './components/MyQuotesPage';
 import TradeInForm from './components/TradeInForm';
 import { QuoteForm } from './components/QuoteForm';
-import { PreOrdersPage } from './components/PreOrdersPage';
+import { PreOrdersPageEnhanced } from './components/PreOrdersPageEnhanced';
 import { SupportTicketsPage } from './components/SupportTicketsPage';
 import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { TrackOrderPage } from './components/TrackOrderPage'; // 🔥 BUILD 131: Rastreamento público
@@ -1014,7 +1014,7 @@ export default function App() {
           )}
 
           {currentPage === 'pre-orders' && (
-            <PreOrdersPage 
+            <PreOrdersPageEnhanced 
               onBack={() => navigateTo('home')} 
               onViewProduct={(productId) => {
                 const product = displayProducts.find(p => p.id === productId);

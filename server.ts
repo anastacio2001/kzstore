@@ -5218,7 +5218,12 @@ app.get('/feed.xml', async (req, res) => {
     xml += '  </channel>\n';
     xml += '</rss>';
     
-    res.header('Content-Type', 'application/xml');
+    // 🔥 FIXED: Headers para forçar atualização no Facebook
+    res.header('Content-Type', 'application/xml; charset=UTF-8');
+    res.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+    res.header('Last-Modified', new Date().toUTCString());
     res.send(xml);
   } catch (error: any) {
     console.error('Error generating XML feed:', error);
