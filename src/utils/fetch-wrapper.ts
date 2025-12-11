@@ -19,7 +19,7 @@ const getAPIBaseURL = () => {
 
 const API_BASE_URL = getAPIBaseURL();
 
-console.log(`✅ [Fetch Wrapper] Initialized - API calls will redirect to: ${API_BASE_URL}`);
+// Fetch wrapper inicializado
 
 // Salvar o fetch original
 const originalFetch = window.fetch;
@@ -47,14 +47,7 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
     ...init,
   };
   
-  // Log apenas para URLs da API
-  if (rewrittenURL.includes('/api/') || rewrittenURL.includes('kzstore-backend')) {
-    console.log(`🌐 [Fetch Wrapper] ${typeof input === 'string' ? input : 'URL'} → ${rewrittenURL}`);
-  }
-  
   return originalFetch(rewrittenURL, finalInit);
 };
-
-console.log('✅ [Fetch Wrapper] Initialized - API calls will use:', API_BASE_URL);
 
 export {}; // Para tornar este arquivo um módulo

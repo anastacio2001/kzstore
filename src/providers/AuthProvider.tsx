@@ -449,20 +449,15 @@ export const AuthProvider = ({ children }: Props) => {
 
   const isAdmin = useCallback(() => {
     if (!user) {
-      console.log('🔍 [isAdmin] No user found');
       return false;
     }
-    console.log('🔍 [isAdmin] Checking user:', { email: user.email, role: user.role });
     if (user.role === 'admin') {
-      console.log('✅ [isAdmin] User is admin by role');
       return true;
     }
     const adminEmails = ['admin@kzstore.ao', 'admin@kzstore.com', 'geral@kzstore.com', 'geral@kzstore.ao'];
     if (user.email && adminEmails.includes(user.email.toLowerCase())) {
-      console.log('✅ [isAdmin] User is admin by email');
       return true;
     }
-    console.log('❌ [isAdmin] User is NOT admin');
     return false;
   }, [user]);
 

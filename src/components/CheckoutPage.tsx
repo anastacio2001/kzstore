@@ -264,14 +264,9 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
         console.log('🔵 [CHECKOUT] No user logged in, creating local session...');
         toast.info('Criando sessão...');
         currentUser = await quickLogin(formData.email, formData.nome, formData.telefone);
-        console.log('✅ [CHECKOUT] Local session created:', currentUser.id);
       }
 
       const userId = currentUser?.id || 'guest';
-      console.log('🔥 [CHECKOUT] Creating order with user_id:', userId);
-      console.log('🔥 [CHECKOUT] User object:', JSON.stringify(currentUser, null, 2));
-      console.log('🔥 [CHECKOUT] User email:', formData.email);
-      console.log('🔥 [CHECKOUT] User name:', formData.nome);
 
       toast.info('Criando pedido...');
       const order = await createOrder({

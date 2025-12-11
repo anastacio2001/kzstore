@@ -19,16 +19,11 @@ export function useProducts() {
     setLoading(true);
     setError(null);
     try {
-      console.log('🔍 [useProducts] Calling api.getProducts()...');
       const productsArray = await api.getProducts();
-      console.log(`📦 [useProducts] Received ${productsArray?.length || 0} products from API`);
-      console.log('📊 [useProducts] First product:', productsArray?.[0]?.nome || 'none');
-      console.log('🔄 [useProducts] Setting products state...');
       setProducts(productsArray);
-      console.log('✅ [useProducts] State updated');
       return productsArray;
     } catch (err) {
-      console.error('❌ [useProducts] Error fetching products:', err);
+      console.error('Error fetching products:', err);
       setError(String(err));
       setProducts([]);
       return [];

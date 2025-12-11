@@ -185,8 +185,6 @@ export interface LoyaltyHistory {
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  console.log(`🔵 [fetchAPI] Calling: ${url}`);
-  
   // Sempre incluir Authorization header se token disponível
   const authHeaders = getAuthHeaders();
   const headers = {
@@ -200,16 +198,11 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
       headers,
       credentials: 'include', // Ainda inclui cookies por compatibilidade
     });
-
-    console.log(`📡 [fetchAPI] Response status: ${response.status} ${response.statusText}`);
     
     const data = await response.json();
-    
-    console.log(`📦 [fetchAPI] Response data keys:`, Object.keys(data));
-    console.log(`📊 [fetchAPI] Response data.data length:`, data.data?.length);
 
     if (!response.ok) {
-      console.error(`❌ [fetchAPI] Response not OK:`, data);
+      console.error('API request failed:', data.error || data.message);
       throw new Error(data.error || data.message || 'API request failed');
     }
 
@@ -267,16 +260,7 @@ export async function getProducts(filters?: {
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await fetchAPI(`/products${query}`);
   
-  console.log(`📦 [API] Response structure:`, { 
-    hasData: !!response.data, 
-    hasProducts: !!response.products,
-    dataLength: response.data?.length,
-    productsLength: response.products?.length,
-    responseKeys: Object.keys(response)
-  });
-  
   const result = (response.data || response.products || []) as Product[];
-  console.log(`✅ [API] Loaded ${result.length} products from API`);
   return result;
 }
 

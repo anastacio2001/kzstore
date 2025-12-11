@@ -101,7 +101,6 @@ function AdminPageContent({
     // Verificar se autenticado mas não é admin após um pequeno delay
     // para garantir que o estado user foi atualizado
     if (isAuthenticated && !isAdmin()) {
-      console.log('🚫 [AdminPageContent] User authenticated but not admin');
       setShouldRedirect(true);
       showToast('Acesso negado. Área restrita a administradores.', 'error');
       const timer = setTimeout(() => navigateTo('home'), 2000);
@@ -111,7 +110,6 @@ function AdminPageContent({
 
   // Se autenticado e é admin, mostrar painel
   if (isAuthenticated && isAdmin()) {
-    console.log('✅ [AdminPageContent] Showing admin panel');
     return (
       <UnifiedAdminPanel
         onBack={() => navigateTo('home')}
