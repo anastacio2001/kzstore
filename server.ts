@@ -482,6 +482,9 @@ app.get('/api/products', cacheMiddleware(300), paginationMiddleware, async (req,
       where.is_pre_order = true;
     } else if (pre_order === 'false') {
       where.is_pre_order = false;
+    } else if (pre_order === 'all') {
+      // Não adicionar filtro de is_pre_order - mostrar TODOS os produtos
+      // Útil para o admin panel
     } else {
       // Se não especificado, EXCLUIR pré-vendas do catálogo normal
       // Pré-vendas aparecem SOMENTE na seção de pré-vendas

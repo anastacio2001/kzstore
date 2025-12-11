@@ -244,12 +244,22 @@ export async function getProducts(filters?: {
   subcategoria?: string;
   marca?: string;
   search?: string;
+  pre_order?: string | boolean; // Adicionar filtro de pré-venda
 }) {
   const params = new URLSearchParams();
   if (filters?.categoria) params.append('categoria', filters.categoria);
   if (filters?.subcategoria) params.append('subcategoria', filters.subcategoria);
   if (filters?.marca) params.append('marca', filters.marca);
   if (filters?.search) params.append('search', filters.search);
+  
+  // Para o admin, buscar TODOS os produtos (incluindo pré-vendas)
+  // Se pre_order não for especificado, adicionar 'all' para mostrar tudo
+  if (filters?.pre_order !== undefined) {
+    params.append('pre_order', String(filters.pre_order));
+  } else {
+    // Por padrão no admin, mostrar TODOS os produtos
+    params.append('pre_order', 'all');
+  }
   
   // Buscar TODOS os produtos (limite alto para obter todos)
   params.append('limit', '1000');
