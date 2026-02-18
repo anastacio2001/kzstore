@@ -37,6 +37,9 @@ type Coupon = {
 };
 
 export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewProduct, onNavigateToProduct }: CheckoutPageProps) {
+  // Validação de segurança: garantir que cart é um array válido
+  const safeCart = Array.isArray(cart) ? cart : [];
+  
   const [step, setStep] = useState<Step>('info');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('multicaixa');
   const [orderNumber, setOrderNumber] = useState('');
@@ -80,16 +83,28 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   const isGuestCheckout = !user;
 
   // Safe calculation of cart total if not provided
-  const safeCartTotal = cartTotal || cart.reduce((total, item) => 
+  const safeCartTotal = cartTotal || safeCart.reduce((total, item) => 
     total + ((item.product?.preco_aoa || 0) * (item.quantity || 0)), 0
   ) || 0;
 
   // Check if cart has flash sale products
-  const hasFlashSaleProducts = cart.some(item => (item.product as any).is_flash_sale);
+  const hasFlashSaleProducts = safeCart.some(item => (item.product as any).is_flash_sale);
 
   // Calculate shipping cost - PEGA O MAIOR frete fixo entre produtos (não soma)
-  const shippingCost = cart.reduce((maxShipping, item) => {
+  const shippingCost = safeCart.length > 0 ? safeCart.reduce((maxShipping, item) => {
     const product = item.product;
+    
+    // Validar se o produto existe
+    if (!product) {
+      console.warn('⚠️ [Frete] Produto inválido encontrado no carrinho');
+      return maxShipping;
+    }
+    // Validar se o produto existe
+    if (!product) {
+      console.warn('⚠️ [Frete] Produto inválido encontrado no carrinho');
+      return maxShipping;
+    }
+    
     const shippingType = product?.shipping_type || 'dynamic';
     
     console.log('🚚 [Frete] Produto:', product?.nome);
@@ -112,12 +127,12 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
     // 🧮 Frete dinâmico - calculado depois
     console.log('🧮 [Frete] Dinâmico');
     return maxShipping;
-  }, 0);
+  }, 0) : 0;
   
   console.log('📦 [Frete] Custo calculado:', shippingCost);
   
   // Verificar se algum produto tem frete fixo (paid/paid_fixed)
-  const hasFixedShipping = cart.some(item => {
+  const hasFixedShipping = safeCart.some(item => {
     const type = item.product?.shipping_type;
     return type === 'paid' || type === 'paid_fixed';
   });
@@ -133,7 +148,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   const safeDiscountAmount = Number(discountAmount) || 0;
   
   // Verificar se todos produtos têm frete grátis
-  const allProductsFreeShipping = cart.length > 0 && cart.every(item => {
+  const allProductsFreeShipping = safeCart.length > 0 && safeCart.every(item => {
     const shippingType = item.product?.shipping_type || 'dynamic';
     return shippingType === 'free' || shippingType === 'free_all';
   });
@@ -155,7 +170,9 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   
   console.log('🎯 [Frete] FINAL:', safeFinalShippingCost);
   
-  const total = Number(safeCartTotal) + safeFinalShippingCost - safeDiscountAmount;
+  // Validar e garantir que o total é sempre um número válido
+  const calculatedTotal = Number(safeCartTotal) + safeFinalShippingCost - safeDiscountAmount;
+  const total = isNaN(calculatedTotal) ? 0 : Math.max(0, calculatedTotal);
 
   // BUILD 131: Handle dynamic shipping calculation
   const handleShippingCalculated = (cost: number, days: number) => {
@@ -193,11 +210,11 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
   const handleConfirmPayment = async () => {
     console.log('🔥 [CHECKOUT] handleConfirmPayment chamado');
     console.log('🔥 [CHECKOUT] User:', user);
-    console.log('🔥 [CHECKOUT] Cart:', cart);
+    console.log('🔥 [CHECKOUT] Cart:', safeCart);
     console.log('🔥 [CHECKOUT] Payment Method:', paymentMethod);
     
     // Validar carrinho
-    if (cart.length === 0) {
+    if (safeCart.length === 0) {
       console.error('❌ [CHECKOUT] Carrinho vazio');
       toast.error('Carrinho vazio. Adicione produtos antes de finalizar.');
       return;
@@ -206,9 +223,9 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
     setIsCreatingOrder(true);
     try {
       // 1. Preparar itens do pedido
-      console.log('🛒 [CHECKOUT] Cart items:', cart);
+      console.log('🛒 [CHECKOUT] Cart items:', safeCart);
       
-      const orderItems: OrderItem[] = cart.map(item => {
+      const orderItems: OrderItem[] = safeCart.map(item => {
         console.log('🔍 [CHECKOUT] Processing cart item:', {
           product_id: item.product.id,
           product_name: item.product.nome,
@@ -275,12 +292,12 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
         user_name: formData.nome,
         items: orderItems,
         subtotal: safeCartTotal,
-        shipping_cost: finalShippingCost,
+        shipping_cost: safeFinalShippingCost,
         discount_amount: discountAmount,
         discount_type: appliedCoupon ? 'coupon' : undefined,
         discount_details: discountDetails || undefined,
         tax_amount: 0,
-        total: safeCartTotal + finalShippingCost - discountAmount,
+        total: safeCartTotal + safeFinalShippingCost - discountAmount,
         payment_method: paymentMethod,
         shipping_address: shippingAddress,
         notes: formData.observacoes || undefined,
@@ -331,12 +348,13 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
     message += `Email: ${formData.email}\n`;
     message += `Endereço: ${formData.endereco}, ${formData.cidade}\n\n`;
     message += `*Produtos:*\n`;
-    cart.forEach(item => {
-      message += `• ${item.product.nome} (${item.quantity}x) - ${(item.product.preco_aoa * item.quantity).toLocaleString('pt-AO')} AOA\n`;
+    safeCart.forEach(item => {
+      const price = item.product?.preco_aoa || 0;
+      message += `• ${item.product.nome} (${item.quantity}x) - ${(price * item.quantity).toLocaleString('pt-AO')} AOA\n`;
     });
-    message += `\n*Subtotal:* ${safeCartTotal.toLocaleString('pt-AO')} AOA\n`;
-    message += `*Frete:* ${shippingCost.toLocaleString('pt-AO')} AOA\n`;
-    message += `*Total:* ${total.toLocaleString('pt-AO')} AOA\n`;
+    message += `\n*Subtotal:* ${(safeCartTotal || 0).toLocaleString('pt-AO')} AOA\n`;
+    message += `*Frete:* ${(safeFinalShippingCost || 0).toLocaleString('pt-AO')} AOA\n`;
+    message += `*Total:* ${(total || 0).toLocaleString('pt-AO')} AOA\n`;
     message += `*Pagamento:* ${
       paymentMethod === 'multicaixa' ? 'Multicaixa Express' : 
       paymentMethod === 'bank_transfer' ? 'Transferência Bancária' : 
@@ -781,7 +799,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                         <p><strong>1.</strong> Abra o app Multicaixa Express</p>
                         <p><strong>2.</strong> Selecione "Pagamentos"</p>
                         <p><strong>3.</strong> Use a referência: <strong>#{orderNumber}</strong></p>
-                        <p><strong>4.</strong> Valor: <strong>{total.toLocaleString('pt-AO')} AOA</strong></p>
+                        <p><strong>4.</strong> Valor: <strong>{(total || 0).toLocaleString('pt-AO')} AOA</strong></p>
                       </div>
                     )}
                     {paymentMethod === 'bank_transfer' && (
@@ -790,14 +808,14 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                         <p><strong>IBAN:</strong> {BANK_ACCOUNTS.bai.iban}</p>
                         <p><strong>Titular:</strong> {BANK_ACCOUNTS.bai.titular}</p>
                         <p><strong>Referência:</strong> #{orderNumber}</p>
-                        <p><strong>Valor:</strong> {total.toLocaleString('pt-AO')} AOA</p>
+                        <p><strong>Valor:</strong> {(total || 0).toLocaleString('pt-AO')} AOA</p>
                       </div>
                     )}
                     {paymentMethod === 'reference' && (
                       <div className="text-sm text-blue-700 space-y-2">
                         <p><strong>1.</strong> Dirija-se a qualquer agência do BAI</p>
                         <p><strong>2.</strong> Informe a referência: <strong>#{orderNumber}</strong></p>
-                        <p><strong>3.</strong> Efetue o pagamento de <strong>{total.toLocaleString('pt-AO')} AOA</strong></p>
+                        <p><strong>3.</strong> Efetue o pagamento de <strong>{(total || 0).toLocaleString('pt-AO')} AOA</strong></p>
                         <p><strong>4.</strong> Guarde o comprovante</p>
                       </div>
                     )}
@@ -891,7 +909,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
               
               {/* Cart Items */}
               <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                {cart.map((item) => (
+                {safeCart.map((item) => (
                   <div key={item.product.id} className="flex gap-3">
                     <div className="size-16 flex-shrink-0 rounded-lg bg-gray-50 overflow-hidden">
                       <img 
@@ -910,7 +928,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                         </span>
                       )}
                       <p className="text-xs text-gray-600">
-                        {item.quantity}x {item.product.preco_aoa.toLocaleString('pt-AO')} AOA
+                        {item.quantity}x {(item.product?.preco_aoa || 0).toLocaleString('pt-AO')} AOA
                       </p>
                     </div>
                   </div>
@@ -947,19 +965,19 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span className="font-semibold">{safeCartTotal.toLocaleString('pt-AO')} AOA</span>
+                  <span className="font-semibold">{(safeCartTotal || 0).toLocaleString('pt-AO')} AOA</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <div className="flex items-center gap-2">
                     <Truck className="size-4" />
                     <span>Frete</span>
                   </div>
-                  {finalShippingCost === 0 ? (
+                  {safeFinalShippingCost === 0 ? (
                     <span className="font-semibold text-green-600 flex items-center gap-1">
                       🎁 GRÁTIS
                     </span>
                   ) : (
-                    <span className="font-semibold">{safeFinalShippingCost.toLocaleString('pt-AO')} AOA</span>
+                    <span className="font-semibold">{(safeFinalShippingCost || 0).toLocaleString('pt-AO')} AOA</span>
                   )}
                 </div>
                 
@@ -971,7 +989,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                       <span>Desconto ({appliedCoupon.code})</span>
                     </div>
                     <span className="font-semibold">
-                      - {safeDiscountAmount.toLocaleString('pt-AO')} AOA
+                      - {(safeDiscountAmount || 0).toLocaleString('pt-AO')} AOA
                     </span>
                   </div>
                 )}
@@ -981,7 +999,7 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
                 <div className="flex justify-between">
                   <span className="text-lg font-bold text-gray-900">Total</span>
                   <p className="text-2xl font-bold text-red-600">
-                    {total.toLocaleString('pt-AO')} AOA
+                    {(total || 0).toLocaleString('pt-AO')} AOA
                   </p>
                 </div>
               </div>
