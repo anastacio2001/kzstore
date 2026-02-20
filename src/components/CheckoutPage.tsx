@@ -38,7 +38,9 @@ type Coupon = {
 
 export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewProduct, onNavigateToProduct }: CheckoutPageProps) {
   // Validação de segurança: garantir que cart é um array válido
+  // Fix: Prevenir erro de toLocaleString em valores undefined - v2.1.0
   const safeCart = Array.isArray(cart) ? cart : [];
+  const BUILD_VERSION = '2.1.0-fixed'; // Version tracker
   
   const [step, setStep] = useState<Step>('info');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('multicaixa');
