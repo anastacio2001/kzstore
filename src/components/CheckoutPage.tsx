@@ -352,7 +352,9 @@ export function CheckoutPage({ cart, cartTotal, onOrderComplete, onBack, onViewP
     message += `*Produtos:*\n`;
     safeCart.forEach(item => {
       const price = item.product?.preco_aoa || 0;
-      message += `• ${item.product.nome} (${item.quantity}x) - ${(price * item.quantity).toLocaleString('pt-AO')} AOA\n`;
+      const quantity = item.quantity || 1;
+      const itemTotal = price * quantity;
+      message += `• ${item.product.nome} (${quantity}x) - ${(itemTotal || 0).toLocaleString('pt-AO')} AOA\n`;
     });
     message += `\n*Subtotal:* ${(safeCartTotal || 0).toLocaleString('pt-AO')} AOA\n`;
     message += `*Frete:* ${(safeFinalShippingCost || 0).toLocaleString('pt-AO')} AOA\n`;
