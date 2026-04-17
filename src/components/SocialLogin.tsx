@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Loader2 } from 'lucide-react';
+import { buildAPIURL } from '../utils/api';
 
 interface SocialLoginProps {
   onSuccess: (token: string, user: any) => void;
@@ -47,7 +48,7 @@ export function SocialLogin({ onSuccess, onError }: SocialLoginProps) {
         const accessToken = response.authResponse.accessToken;
         
         // Enviar token para backend
-        fetch('/api/auth/oauth/facebook', {
+        fetch(buildAPIURL('/auth/oauth/facebook'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ accessToken })
@@ -121,7 +122,7 @@ export function SocialLogin({ onSuccess, onError }: SocialLoginProps) {
   const handleGoogleResponse = (response: any) => {
     const idToken = response.credential;
 
-    fetch('/api/auth/oauth/google', {
+    fetch(buildAPIURL('/auth/oauth/google'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken })

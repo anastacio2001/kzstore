@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Mail, Send, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
+import { buildAPIURL } from '../utils/api';
 
 type NewsletterFormProps = {
   source?: string;
@@ -25,7 +26,7 @@ export function NewsletterForm({ source = 'footer', className = '' }: Newsletter
     setLoading(true);
 
     try {
-      const response = await fetch('/api/newsletter/subscribe', {
+      const response = await fetch(buildAPIURL('/newsletter/subscribe'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name, source })

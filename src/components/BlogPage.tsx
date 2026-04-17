@@ -10,6 +10,7 @@ import { getBlogPosts, BlogPost } from '../services/blogService';
 import { AdBanner } from './AdBanner';
 import { BlogInteractions } from './BlogInteractions';
 import { toast } from 'sonner';
+import { buildAPIURL } from '../utils/api';
 
 type FlashSale = {
   id: string; product_id: string; product_name: string; product_image: string;
@@ -92,7 +93,7 @@ function InlineNewsletterBanner() {
     if (!email || !/\S+@\S+\.\S+/.test(email)) { toast.error('Email inválido'); return; }
     setLoading(true);
     try {
-      const r = await fetch('/api/newsletter/subscribe', {
+      const r = await fetch(buildAPIURL('/newsletter/subscribe'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'blog-inline' }),
       });
@@ -155,7 +156,7 @@ function SidebarNewsletter() {
     if (!email || !/\S+@\S+\.\S+/.test(email)) { toast.error('Email inválido'); return; }
     setLoading(true);
     try {
-      const r = await fetch('/api/newsletter/subscribe', {
+      const r = await fetch(buildAPIURL('/newsletter/subscribe'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source: 'blog-sidebar' }),
       });
