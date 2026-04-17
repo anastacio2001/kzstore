@@ -5221,12 +5221,18 @@ app.get('/feed.xml', async (req, res) => {
     xml += '  </channel>\n';
     xml += '</rss>';
     
-    // 🔥 FIXED: Headers para forçar atualização no Facebook
+    // 🔥 FIXED: Headers otimizados para forçar Facebook a recarregar
+    const now = new Date();
+    const etag = `"fb-feed-${now.getTime()}-${products.length}"`;
+    
     res.header('Content-Type', 'application/xml; charset=UTF-8');
-    res.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, private');
     res.header('Pragma', 'no-cache');
     res.header('Expires', '0');
-    res.header('Last-Modified', new Date().toUTCString());
+    res.header('Last-Modified', now.toUTCString());
+    res.header('ETag', etag);
+    res.header('X-Robots-Tag', 'noindex, nofollow');
+    res.header('Vary', '*');
     res.send(xml);
   } catch (error: any) {
     console.error('Error generating XML feed:', error);
@@ -5270,14 +5276,28 @@ app.get('/google-feed.xml', async (req, res) => {
       
       xml += `    <g:price>${escapeXml(item.price)}</g:price>\n`;
       xml += `    <g:availability>${escapeXml(item.availability)}</g:availability>\n`;
+      
+      // Se é pré-encomenda, adicionar availability_date (30 dias no futuro)
+      if (item.availability === 'preorder') {
+        const availDate = new Date();
+        availDate.setDate(availDate.getDate() + 30);
+        xml += `    <g:availability_date>${availDate.toISOString().split('T')[0]}</g:availability_date>\n`;
+      }
+      
       xml += `    <g:condition>${escapeXml(item.condition)}</g:condition>\n`;
       xml += `    <g:brand>${escapeXml(item.brand)}</g:brand>\n`;
       
       // Google não aceita GTINs começando com 2, 02, 04 (restricted range)
-      // Omitir GTIN e usar identifier_exists=false para produtos sem GTIN válido
-      const hasValidGtin = item.gtin && !item.gtin.startsWith('2') && !item.gtin.startsWith('02') && !item.gtin.startsWith('04');
+      // Validar se GTIN é válido (8, 12, 13 ou 14 dígitos) e não é reserved
+      const isValidGtin = item.gtin && 
+        /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(item.gtin) &&
+        !item.gtin.startsWith('2') && 
+        !item.gtin.startsWith('02') && 
+        !item.gtin.startsWith('04') &&
+        !item.gtin.startsWith('0000') &&
+        !item.gtin.startsWith('1111');
       
-      if (hasValidGtin) {
+      if (isValidGtin) {
         xml += `    <g:gtin>${escapeXml(item.gtin)}</g:gtin>\n`;
       } else {
         xml += `    <g:identifier_exists>false</g:identifier_exists>\n`;
@@ -5297,7 +5317,16 @@ app.get('/google-feed.xml', async (req, res) => {
     
     xml += '</feed>';
     
-    res.header('Content-Type', 'application/xml');
+    // Headers otimizados para Google Merchant Center
+    const now = new Date();
+    const etag = `"google-feed-${now.getTime()}-${products.length}"`;
+    
+    res.header('Content-Type', 'application/xml; charset=UTF-8');
+    res.header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+    res.header('Last-Modified', now.toUTCString());
+    res.header('ETag', etag);
     res.send(xml);
   } catch (error: any) {
     console.error('Error generating Google feed:', error);
@@ -5975,13 +6004,13 @@ app.post('/api/newsletter/subscribe', async (req, res) => {
     const id = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     await prisma.$executeRawUnsafe(`
-      INSERT INTO NewsletterSubscriber (id, email, name, status, subscribed_at, source)
-      VALUES (?, ?, ?, 'active', NOW(), ?)
-      ON DUPLICATE KEY UPDATE 
-        status = 'active', 
-        name = COALESCE(?, name),
+      INSERT INTO "NewsletterSubscriber" (id, email, name, status, subscribed_at, source)
+      VALUES ($1, $2, $3, 'active', NOW(), $4)
+      ON CONFLICT (email) DO UPDATE SET
+        status = 'active',
+        name = COALESCE($3, "NewsletterSubscriber".name),
         subscribed_at = NOW()
-    `, id, email, name, source || 'website', name);
+    `, id, email, name || null, source || 'website');
 
     res.json({ message: 'Inscrito com sucesso!' });
   } catch (error: any) {
@@ -5995,9 +6024,9 @@ app.post('/api/newsletter/unsubscribe', async (req, res) => {
     const { email } = req.body;
 
     await prisma.$executeRawUnsafe(`
-      UPDATE NewsletterSubscriber 
-      SET status = 'unsubscribed', unsubscribed_at = NOW() 
-      WHERE email = ?
+      UPDATE "NewsletterSubscriber"
+      SET status = 'unsubscribed', unsubscribed_at = NOW()
+      WHERE email = $1
     `, email);
 
     res.json({ message: 'Desinscrito com sucesso' });
@@ -6010,7 +6039,7 @@ app.post('/api/newsletter/unsubscribe', async (req, res) => {
 app.get('/api/newsletter/subscribers', requireAdmin, async (req, res) => {
   try {
     const subscribers = await prisma.$queryRawUnsafe<any[]>(`
-      SELECT * FROM NewsletterSubscriber ORDER BY subscribed_at DESC
+      SELECT * FROM "NewsletterSubscriber" ORDER BY subscribed_at DESC
     `);
     res.json({ subscribers, total: subscribers.length });
   } catch (error: any) {
@@ -6019,6 +6048,114 @@ app.get('/api/newsletter/subscribers', requireAdmin, async (req, res) => {
     if (error?.meta?.code === '42P01' || error?.code === 'P2010') {
       return res.json({ subscribers: [], total: 0 });
     }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🗑️ NEWSLETTER: Remove subscriber (admin)
+app.delete('/api/newsletter/subscribers/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.$executeRawUnsafe(`
+      DELETE FROM "NewsletterSubscriber" WHERE id = $1
+    `, id);
+    res.json({ message: 'Subscrito removido com sucesso' });
+  } catch (error: any) {
+    console.error('Error deleting subscriber:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 📊 NEWSLETTER: Public subscriber count
+app.get('/api/newsletter/count', async (req, res) => {
+  try {
+    const result = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT COUNT(*) as count FROM "NewsletterSubscriber" WHERE status = 'active'
+    `);
+    const count = Number(result[0]?.count || 0);
+    res.json({ count });
+  } catch (error: any) {
+    res.json({ count: 0 });
+  }
+});
+
+// 📨 NEWSLETTER: Send campaign to all active subscribers
+app.post('/api/newsletter/send-campaign', requireAdmin, async (req, res) => {
+  try {
+    const { subject, body } = req.body;
+
+    if (!subject || !body) {
+      return res.status(400).json({ error: 'Assunto e corpo do email são obrigatórios' });
+    }
+
+    // Get all active subscribers
+    const subscribers = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT email, name FROM "NewsletterSubscriber" WHERE status = 'active'
+    `);
+
+    if (subscribers.length === 0) {
+      return res.json({ sent: 0, message: 'Nenhum subscrito ativo encontrado' });
+    }
+
+    // Check if Resend is configured
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) {
+      console.warn('⚠️ RESEND_API_KEY não configurado. Simulando envio...');
+      // Log campaign but don't send
+      console.log(`📧 [CAMPAIGN SIMULATE] Would send to ${subscribers.length} subscribers: "${subject}"`);
+      return res.json({ 
+        sent: subscribers.length, 
+        message: `Campanha enviada (simulado) para ${subscribers.length} subscritores. Configure RESEND_API_KEY para envio real.`,
+        simulated: true
+      });
+    }
+
+    // Send via Resend
+    const { Resend } = await import('resend');
+    const resend = new Resend(resendKey);
+
+    let sent = 0;
+    const errors: string[] = [];
+
+    // Send in batches of 10 to avoid rate limits
+    const batchSize = 10;
+    for (let i = 0; i < subscribers.length; i += batchSize) {
+      const batch = subscribers.slice(i, i + batchSize);
+      
+      await Promise.allSettled(batch.map(async (sub) => {
+        try {
+          const unsubLink = `${process.env.FRONTEND_URL || 'https://kzstore.ao'}/api/newsletter/unsubscribe-link?email=${encodeURIComponent(sub.email)}`;
+          const htmlBody = `
+            ${body.includes('<') ? body : body.replace(/\n/g, '<br>')}
+            <hr style="margin-top: 40px; border: none; border-top: 1px solid #eee;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+              Recebeu este email porque subscreveu a newsletter da KZSTORE.<br>
+              <a href="${unsubLink}" style="color: #999;">Cancelar subscrição</a>
+            </p>
+          `;
+          
+          await resend.emails.send({
+            from: 'KZSTORE <newsletter@kzstore.ao>',
+            to: sub.email,
+            subject: subject,
+            html: htmlBody,
+          });
+          sent++;
+        } catch (err) {
+          errors.push(sub.email);
+        }
+      }));
+
+      // Small delay between batches
+      if (i + batchSize < subscribers.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`📧 [CAMPAIGN] Sent to ${sent}/${subscribers.length} subscribers`);
+    res.json({ sent, total: subscribers.length, errors: errors.length, message: `Campanha enviada para ${sent} subscritores!` });
+  } catch (error: any) {
+    console.error('Error sending campaign:', error);
     res.status(500).json({ error: error.message });
   }
 });

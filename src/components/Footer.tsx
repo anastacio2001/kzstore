@@ -55,7 +55,8 @@ export function Footer({ onNavigate }: FooterProps) {
       { id: '2', title: 'Produtos', url: '/produtos', order: 2 },
       { id: '3', title: 'Promoções', url: '/promocoes', order: 3 },
       { id: '4', title: 'Blog', url: '/blog', order: 4 },
-      { id: '5', title: 'Carreiras', url: '/carreiras', order: 5 }
+      { id: '5', title: 'Carreiras', url: '/carreiras', order: 5 },
+      { id: '6', title: '📧 Newsletter', url: '/newsletter-page', order: 6 }
     ],
     footerPages: [
       { id: '1', title: 'Central de Ajuda', slug: 'ajuda', content: '', order: 1 },
@@ -76,6 +77,14 @@ export function Footer({ onNavigate }: FooterProps) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          // Garantir que o link Newsletter está sempre presente nos quickLinks
+          const hasNewsletter = parsed.quickLinks?.some((l: any) => l.url === '/newsletter-page');
+          if (!hasNewsletter) {
+            parsed.quickLinks = [
+              ...(parsed.quickLinks || []),
+              { id: '6', title: '📧 Newsletter', url: '/newsletter-page', order: 6 }
+            ];
+          }
           setSettings(parsed);
         } catch (error) {
           console.error('Erro ao carregar configurações do footer:', error);
@@ -238,13 +247,19 @@ export function Footer({ onNavigate }: FooterProps) {
               </p>
             </div>
 
-            {/* BUILD 131: Newsletter Signup */}
+            {/* Newsletter Signup */}
             <div className="mt-6">
-              <h5 className="text-sm font-semibold mb-3">📧 Newsletter</h5>
+              <h5 className="text-sm font-semibold mb-1">📧 Newsletter</h5>
               <p className="text-xs text-gray-400 mb-3">
                 Receba promoções e novidades
               </p>
               <NewsletterForm source="footer" />
+              <button
+                onClick={() => onNavigate('newsletter-page')}
+                className="mt-3 text-sm text-[#E31E24] hover:text-red-400 transition-colors flex items-center gap-1 font-medium"
+              >
+                Ver página completa de newsletter →
+              </button>
             </div>
           </div>
         </div>
