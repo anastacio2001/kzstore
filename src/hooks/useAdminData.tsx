@@ -3,6 +3,7 @@ import { useOrders } from './useOrders';
 import { Product } from '../types';
 import { Order, Customer } from './useOrders';
 import { useState, useCallback } from 'react';
+import { getAPIBaseURL } from '../utils/api';
 // Supabase removed. Use backend endpoints instead.
 
 export type { Order };
@@ -28,7 +29,7 @@ export function useAdminData() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetch('/api/customers', {
+      const response = await fetch(`${getAPIBaseURL()}/customers`, {
         credentials: 'include',
         headers
       });
@@ -78,9 +79,25 @@ export function getAuthToken() {
   // Se não tem token na variável global, tentar pegar do localStorage
   if (!authToken) {
     try {
-      const savedUser = localStorage.getItem('kzstore_user');
+      // Tentar chave 'token' direta (usada pelo AuthProvider para admin/equipa)
+      const directToken = localStorage.getItem('token');
+      if (directToken) {
+        authToken = directToken;
+        return authToken;
+      }
+      // Tentar chave 'user' (AuthProvider - nova chave)
+      const savedUser = localStorage.getItem('user');
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
+        if (parsed.access_token) {
+          authToken = parsed.access_token;
+          return authToken;
+        }
+      }
+      // Fallback: chave 'kzstore_user' (antiga)
+      const oldSavedUser = localStorage.getItem('kzstore_user');
+      if (oldSavedUser) {
+        const parsed = JSON.parse(oldSavedUser);
         if (parsed.access_token) {
           authToken = parsed.access_token;
         }
